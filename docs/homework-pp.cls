@@ -41,7 +41,7 @@
 \RequirePackage{amsfonts}
 \RequirePackage{amssymb}
 
-\author{Fabian Schmidt \texttt{<fa.schmidt@tuhh.de>} \\Fin T\"oter \texttt{<f.toeter@gmail.com>} \\Thomas Pohl \texttt{<thomas.pohl@tuhh.de>} \\Nicolai Frech \texttt{<nicolai.frech@tuhh.de>} }
+\author{Fabian Schmidt \texttt{<fa.schmidt@tuhh.de>} \\Fin T\"oter \texttt{<f.toeter@gmail.com>} \\Thomas Pohl \texttt{<thomas.pohl@tuhh.de>} \\Nicolai Frech \texttt{<nicolai.frech@tuhh.de>}}
 \course{Prozedurale Programmierung WS 2015/16}
 \subsectioncounter{\alph{subsection}}
 \subsectionsuffix{)}
