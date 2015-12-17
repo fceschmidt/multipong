@@ -1,12 +1,244 @@
 \documentclass{homework-pp}
 
+\usepackage{listings}
+
 \date{\today}
-\sheet{Spezifikation}
+\sheet{Projekt, Woche 1}
 
 \setlength\parindent{0pt}
+
+\renewcommand{\c}[1]{\lstinline[language=c,basicstyle=\ttfamily]|#1|}
+\lstnewenvironment{cblock}{
+	\lstset{
+		language   = c,
+		basicstyle = \ttfamily,
+		tabsize    = 4
+	}
+}{}
+
+\newcommand{\comment}[1]{}
 
 \begin{document}
 
 \makeheadline
+
+\section{Spezifikation}
+
+% TODO
+% Die Funktionalität von multipong beschreiben und ca. 8 Leistungskriterien aufstellen. Wenn wir hier lasch rangehen, kriegen wir eine bessere Note
+
+\section{Design}
+
+\subsection{Programmstruktur}
+\subsection{Wichtigste Funktionen}
+\subsection{Zentrale Datentypen}
+\subsection{Gemeinsamer Codestil}
+
+\subsubsection{Einrückung}
+
+Es werden Tabs mit einer Breite von 4 Leerzeichen benutzt.
+
+\subsubsection{Klammern}
+
+Wo möglich, werden geschweifte Klammern gesetzt (\c{if}, \c{else}, Funktionen, Strukturen, \c{typedef}s, etc.)
+
+\begin{cblock}
+if ( x ) {
+
+}
+\end{cblock}
+
+Das \c{else}-Statement beginnt in derselben Zeile wie die vorhergehende schließende geschweifte Klammer.
+
+\begin{cblock}
+if ( x ) {
+} else {
+}
+\end{cblock}
+
+Ausdrücke in Klammern werden mit Leerzeichen umgeben.
+
+\begin{cblock}
+if ( x ) {
+
+}
+\end{cblock}
+
+statt
+
+\begin{cblock}
+if (x) {
+
+}
+\end{cblock}
+
+und
+
+\begin{cblock}
+x = ( y * 0.5f );
+\end{cblock}
+
+statt
+
+\begin{cblock}
+x = (y * 0.5f);
+\end{cblock}
+
+\subsubsection{Gleitkommaliterale}
+
+Immer die Genauigkeit eines Literals mit angeben, es sei denn, \c{double} wird explizit benötigt.
+
+\begin{cblock}
+float f = 0.5f;
+\end{cblock}
+statt
+\begin{cblock}
+float f = 0.5;
+\end{cblock}
+
+und
+
+\begin{cblock}
+float f = 1.0f;
+\end{cblock}
+statt
+\begin{cblock}
+float f = 1.f;
+\end{cblock}
+
+\subsubsection{Funktionsnamen}
+
+Funktionen beginnen mit einem Großbuchstaben:
+
+\begin{cblock}
+void Function( void );
+\end{cblock}
+
+In Funktionen, die mehrere Wörter enthalten, beginnt jedes Wort mit einem Großbuchstaben:
+
+\begin{cblock}
+void ThisFunctionDoesSomething( void );
+\end{cblock}
+
+Die Standard-Kopfzeile für Funktionen ist:
+
+\begin{cblock}
+/*
+====================
+Funktionsname
+
+Zweck
+====================
+*/
+\end{cblock}
+
+\subsubsection{Variablen}
+
+Variablennamen beginnen mit einem Kleinbuchstaben.
+
+\begin{cblock}
+float x;
+\end{cblock}
+
+In Variablennamen mit mehreren Wörtern beginnt jedes Wort bis auf das erste mit einem Großbuchstaben.
+
+\begin{cblock}
+float maxDistanceFromPlane;
+\end{cblock}
+
+\subsubsection{\c{typedef}}
+
+Namen von \c{typedef}s folgen derselben Konvention wie variablen, wobei ihnen ein \_t an den Namen angehängt wird.
+
+\begin{cblock}
+typedef int fileHandle_t;
+\end{cblock}
+
+\subsubsection{\c{struct}-Namen}
+
+Namen von \c{struct}s folgen derselben Konvention wie \c{typedef}s.
+
+\begin{cblock}
+struct renderEntity_t;
+\end{cblock}
+
+\subsubsection{\c{enum}}
+Namen von \c{enum}s folgen ebenfalls derselben Konvention wie \c{typedef}s und \c{struct}s. Die \c{enum}-Konstanten werden komplett in Großbuchstaben geschrieben. Mehrer Wörter werden untereinander durch Unterstriche getrennt.
+
+\begin{cblock}
+enum contact_t {
+	CONTACT_NONE,
+	CONTACT_EDGE,
+	CONTACT_MODELVERTEX,
+	CONTACT_TRMVERTEX
+};
+\end{cblock}
+
+\subsubsection{Rekursive Funktionen}
+
+Namen von rekursiven Funktionen enden in \c{\_r}.
+
+\begin{cblock}
+void WalkBSP_r( int node );
+\end{cblock}
+
+\subsubsection{Makros}
+
+Makros werden komplett in Großbuchstaben geschrieben. Wörter werden untereinander durch Unterstriche getrennt.
+
+\begin{cblock}
+#define SIDE_FRONT 0
+\end{cblock}
+
+\subsubsection{\c{const}}
+
+\c{const} soll wo immer möglich genutzt werden:
+
+\begin{cblock}
+const int *p; // pointer to const int
+int * const p; // const pointer to int
+const int * const p; // const pointer to const int
+\end{cblock}
+
+Nicht benutzen:
+
+\begin{cblock}
+int const *p;
+\end{cblock}
+
+\subsubsection{\c{struct}}
+
+Die Standardkopfzeile für eine \c{struct} ist:
+
+\vbox{\begin{cblock}
+/*
+==========================================================
+
+Beschreibung
+
+==========================================================
+*/
+\end{cblock}}
+
+Felder von \c{struct}s folgen derselben Benennungskonvention wie Variablen. Felder sollten eingerückt sein, um ein tabellenähnliches Aussehen zu erreichen.
+
+\begin{cblock}
+struct player_t {
+	char *		name;
+	texture2D_t	texture;
+	float		position;
+	int			points;
+};
+\end{cblock}
+
+Das \c{*} eines Zeigers gehört zum Typ des Feldes und sollte daher aus Gründen der Lesbarkeit links bleiben.
+
+\subsubsection{Dateinamen}
+
+Jede \c{struct} mit ihren dazugehörigen Funktionen sollte in einer eigenen Quellcodedatei sein, außer es ergibt Sinn, mehrere kleinere Structs in eine Datei zu gruppieren. Der Dateiname sollte derselbe sein wie der Name der \c{struct} mit einem Großbuchstaben am Anfang, aber ohne das \c{\_t}. Die Dateien für \c{struct winding_t} wären dementsprechend Winding.h und Winding.c.
+
+\subsubsection{Sprache}
+
+Der Code wird mit englischen Bezeichnern und Kommentaren geschrieben.
 
 \end{document}
