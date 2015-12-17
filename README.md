@@ -1,3 +1,3 @@
-Project Schwengelpong 
+# Schwengelpong 
 
-a project made by 4 definetly awesome delevopers. We rock 
+A project made by 4 definetly awesome delevopers. We rock!
