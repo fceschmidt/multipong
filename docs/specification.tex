@@ -44,8 +44,123 @@ Mehrere Spieler können sich zum Spiel innerhalb eines LAN-Netzwerks miteinander
 \section{Design}
 
 \subsection{Programmstruktur}
+Wenn das Programm ausgeführt wird, liegt die Kontrolle nach der \textbf{Programminitialisierung} in der \textbf{Menüschleife}. Von da aus kann das Programm entweder beendet werden, oder die Kontrolle wird nach der \textbf{Spielinitialisierung} an die \textbf{Spielschleife} abgegeben. In der Spielschleife wechselt die Ausführung regelmäßig zwischen den Komponenten \textbf{Eingabe}, \textbf{Netzwerk}, \textbf{Physik} und \textbf{Ausgabe}. Desweiteren gibt es eine \textbf{Debug}-Komponente, die wichtige Ereignisse in einer Debug-Logdatei hinterlegt.
+
 \subsection{Wichtigste Funktionen}
+\subsubsection{Hauptprogramm}
+
+\begin{cblock}
+int main( int argc, void **argv );
+\end{cblock}
+
+\subsubsection{Programminitialisierung}
+
+\begin{cblock}
+int InitializeProgram( int argc, void **argv );
+\end{cblock}
+
+\subsubsection{Menüschleife}
+
+\begin{cblock}
+int MenuLoop( void );
+\end{cblock}
+
+\subsubsection{Spiel}
+
+\begin{cblock}
+int InitializeGame( void );
+int GameLoop( void );
+\end{cblock}
+
+\subsubsection{Netzwerk}
+
+\begin{cblock}
+int InitializeNetwork( void );
+int Connect( int 			server,
+			 const char *	remoteAddress,
+			 unsigned short	remotePort );
+int ProcessNetwork( void );
+\end{cblock}
+
+\subsubsection{Eingabe}
+
+\begin{cblock}
+int ProcessInput( void );
+\end{cblock}
+
+\subsubsection{Physik}
+
+\begin{cblock}
+int ProcessPhysics( float deltaSeconds );
+struct Vector2D ScaleVector2D( struct Vector2D vector,
+							   float 		   scaling );
+struct Point2D AddVectorToPoint2D( struct Point2D  point,
+								   struct Vector2D vector );
+\end{cblock}
+
+\subsubsection{Ausgabe}
+
+\begin{cblock}
+int InitializeDisplay( void );
+int InitializeSound( void );
+int DisplayGameState( const struct GameState *state );
+\end{cblock}
+
+\subsubsection{Debug}
+
+\begin{cblock}
+void DebugPrint( const char *text );
+void DebugPrintF( const char *format, ... )
+\end{cblock}
+
 \subsection{Zentrale Datentypen}
+
+\subsubsection{\c{GameState}}
+
+\begin{cblock}
+struct GameState {
+	Player *	players;
+	Ball		ball;
+};
+\end{cblock}
+
+\subsubsection{\c{Player}}
+
+\begin{cblock}
+struct Player {
+	char *	name;
+	float	position;
+	int		score;
+};
+\end{cblock}
+
+\subsubsection{\c{Ball}}
+
+\begin{cblock}
+struct Ball {
+	Point2D		position;
+	Vector2D	direction;
+};
+\end{cblock}
+
+\subsubsection{\c{Point2D}}
+
+\begin{cblock}
+struct Point2D {
+	float x;
+	float y;
+};
+\end{cblock}
+
+\subsubsection{\c{Vector2D}}
+
+\begin{cblock}
+struct Vector2D {
+	float dx;
+	float dy;
+};
+\end{cblock}
+
 \subsection{Gemeinsamer Codestil}
 
 \subsubsection{Einrückung}
@@ -122,7 +237,7 @@ float f = 1.f;
 
 \subsubsection{Funktionsnamen}
 
-Funktionen beginnen mit einem Großbuchstaben:
+Funktionen beginnen mit einem Großbuchstaben (Einzige Ausnahme ist die \c{main}-Funktion):
 
 \begin{cblock}
 void Function( void );
@@ -170,17 +285,17 @@ typedef int fileHandle_t;
 
 \subsubsection{\c{struct}-Namen}
 
-Namen von \c{struct}s folgen derselben Konvention wie \c{typedef}s.
+In Namen von \c{struct}s beginnt jedes Wort mit einem Großbuchstaben.
 
 \begin{cblock}
-struct renderEntity_t;
+struct RenderEntity;
 \end{cblock}
 
 \subsubsection{\c{enum}}
-Namen von \c{enum}s folgen ebenfalls derselben Konvention wie \c{typedef}s und \c{struct}s. Die \c{enum}-Konstanten werden komplett in Großbuchstaben geschrieben. Mehrer Wörter werden untereinander durch Unterstriche getrennt.
+Namen von \c{enum}s folgen ebenfalls derselben Konvention wie \c{struct}s. Die \c{enum}-Konstanten werden komplett in Großbuchstaben geschrieben. Mehrer Wörter werden untereinander durch Unterstriche getrennt.
 
 \begin{cblock}
-enum contact_t {
+enum Contact {
 	CONTACT_NONE,
 	CONTACT_EDGE,
 	CONTACT_MODELVERTEX,
@@ -237,9 +352,9 @@ Beschreibung
 Felder von \c{struct}s folgen derselben Benennungskonvention wie Variablen. Felder sollten eingerückt sein, um ein tabellenähnliches Aussehen zu erreichen.
 
 \begin{cblock}
-struct player_t {
+struct Player {
 	char *		name;
-	texture2D_t	texture;
+	Texture2D	texture;
 	float		position;
 	int			points;
 };
@@ -249,7 +364,7 @@ Das \c{*} eines Zeigers gehört zum Typ des Feldes und sollte daher aus Gründen
 
 \subsubsection{Dateinamen}
 
-Jede \c{struct} mit ihren dazugehörigen Funktionen sollte in einer eigenen Quellcodedatei sein, außer es ergibt Sinn, mehrere kleinere Structs in eine Datei zu gruppieren. Der Dateiname sollte derselbe sein wie der Name der \c{struct} mit einem Großbuchstaben am Anfang, aber ohne das \c{\_t}. Die Dateien für \c{struct winding_t} wären dementsprechend Winding.h und Winding.c.
+Jede \c{struct} mit ihren dazugehörigen Funktionen sollte in einer eigenen Quellcodedatei sein, außer es ergibt Sinn, mehrere kleinere \c{struct}s in eine Datei zu gruppieren. Der Dateiname sollte derselbe sein wie der Name der \c{struct}. Die Dateien für \c{struct Winding} wären dementsprechend Winding.h und Winding.c.
 
 \subsubsection{Sprache}
 
