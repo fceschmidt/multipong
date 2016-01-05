@@ -184,13 +184,12 @@ struct Vector2D {
 
 \subsubsection{\c{InputState}}
 
-Speichert Informationen zum aktuellen Zustand von Maus und Tastatur. Um den Tasten eine Bedeutung zu geben, werden in der Eingabekomponente Variablen definiert, die die Indizes der Steuerungstasten im \c{keys}-Array beinhalten.
+Speichert Informationen zum aktuellen Zustand von der Tastatur. Um den Tasten eine Bedeutung zu geben, werden in der Eingabekomponente Variablen definiert, die die Indizes der Steuerungstasten im \c{keys}-Array beinhalten.
 
 \begin{cblock}
 struct InputState {
 	int		numKeys;
 	int *	keys;
-	Point2D	mouse;
 };
 \end{cblock}
 
