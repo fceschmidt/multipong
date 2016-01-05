@@ -31,20 +31,20 @@ Es gibt mindestens zwei und bis zu sechs Spieler. Jedem Spieler wird ein Paddle 
 \subsubsection{Eingabe}
 Die Eingabe erfolgt über zwei Pfeiltasten der Computertastatur.
 \subsubsection{Grafikausgabe}
-Die Grafikausgabe ist in der Lage, ein bildschirmfüllendes Bild auszugeben, das den momentanen Status des Spiels für einen Menschen verständlich und anschaulich als 2D-Grafik darstellt. Es gibt eine Anzeige, anhand derer die Punktanzahl jedes Spielers abzulesen ist.
+Das Programm ist in der Lage, ein bildschirmfüllendes Bild auszugeben, das den momentanen Status des Spiels anschaulich als 2D-Grafik darstellt. Es gibt eine Anzeige, anhand derer die Punktanzahl jedes Spielers abzulesen ist.
 \subsubsection{Menü}
 Das Spiel startet in ein Menü, in dem man (a) ein Spiel eröffnen oder einem Spiel beitreten, (b) das Spiel beenden und (c) die Eingabezuweisungen ändern und die Lautstärke der Tonausgabe einstellen kann.
 \subsubsection{Tonausgabe}
 Je nach Einstellung wird ein Ton abgespielt, wenn der Ball auf ein Paddle trifft, der Ball das Spielfeld verlässt oder das Spiel endet.
 \subsubsection{Multiplattformunterstützung}
-Das Spiel sollte sowohl unter Microsoft Windows ab Version 7, Ubuntu 14.04 LTS als auch Mac OS X ab Version 10.6.
+Das Programm sollte sowohl unter Microsoft Windows ab Version 7, Ubuntu 14.04 LTS als auch Mac OS X ab Version 10.6 funktionieren.
 \subsubsection{Netzwerkunterstützung}
-Mehrere Spieler können sich zum Spiel innerhalb eines LAN-Netzwerks miteinander verbinden.
+Mehrere Spieler können sich zum Spiel innerhalb eines LAN miteinander verbinden.
 
 \section{Design}
 
 \subsection{Programmstruktur}
-Wenn das Programm ausgeführt wird, liegt die Kontrolle nach der \textbf{Programminitialisierung} in der \textbf{Menüschleife}. Von da aus kann das Programm entweder beendet werden, oder die Kontrolle wird nach der \textbf{Spielinitialisierung} an die \textbf{Spielschleife} abgegeben. In der Spielschleife wechselt die Ausführung regelmäßig zwischen den Komponenten \textbf{Eingabe}, \textbf{Netzwerk}, \textbf{Physik} und \textbf{Ausgabe}. Desweiteren gibt es eine \textbf{Debug}-Komponente, die wichtige Ereignisse in einer Debug-Logdatei hinterlegt.
+Wenn das Programm ausgeführt wird, liegt die Kontrolle nach der \textbf{Programminitialisierung} in der \textbf{Menüschleife}, die auf die Komponenten \textbf{Eingabe} und \textbf{Ausgabe} zurückgreift. Von da aus kann das Programm entweder beendet werden, oder die Kontrolle wird nach der \textbf{Spielinitialisierung} an die \textbf{Spielschleife} abgegeben. In der Spielschleife wechselt die Ausführung regelmäßig zwischen den Komponenten \textbf{Eingabe}, \textbf{Netzwerk}, \textbf{Physik} und \textbf{Ausgabe}. Desweiteren gibt es eine \textbf{Debug}-Komponente, die wichtige Ereignisse in einer Debug-Logdatei hinterlegt.
 
 \subsection{Wichtigste Funktionen}
 \subsubsection{Hauptprogramm}
@@ -57,9 +57,10 @@ int main( int argc, void **argv );
 
 \begin{cblock}
 int InitializeProgram( int argc, void **argv );
+void CloseProgram( void );
 \end{cblock}
 
-\subsubsection{Menüschleife}
+\subsubsection{Menü}
 
 \begin{cblock}
 int MenuLoop( void );
@@ -70,6 +71,7 @@ int MenuLoop( void );
 \begin{cblock}
 int InitializeGame( void );
 int GameLoop( void );
+void CloseGame( void );
 \end{cblock}
 
 \subsubsection{Netzwerk}
@@ -80,18 +82,22 @@ int Connect( int 			server,
 			 const char *	remoteAddress,
 			 unsigned short	remotePort );
 int ProcessNetwork( void );
+void CloseNetwork( void );
 \end{cblock}
 
 \subsubsection{Eingabe}
 
 \begin{cblock}
-int ProcessInput( void );
+int InitializeInput( void );
+const struct InputState GetInputState( void );
+void CloseInput( void );
 \end{cblock}
 
 \subsubsection{Physik}
 
 \begin{cblock}
-int ProcessPhysics( float deltaSeconds );
+int ProcessPhysics( const struct GameState *state,
+					float 					deltaSeconds );
 struct Vector2D ScaleVector2D( struct Vector2D vector,
 							   float 		   scaling );
 struct Point2D AddVectorToPoint2D( struct Point2D  point,
@@ -104,27 +110,36 @@ struct Point2D AddVectorToPoint2D( struct Point2D  point,
 int InitializeDisplay( void );
 int InitializeSound( void );
 int DisplayGameState( const struct GameState *state );
+void CloseDisplay( void );
+void CloseSound( void );
 \end{cblock}
 
 \subsubsection{Debug}
 
 \begin{cblock}
+int InitializeDebug( void );
 void DebugPrint( const char *text );
-void DebugPrintF( const char *format, ... )
+void DebugPrintF( const char *format, ... );
+void CloseDebug( void );
 \end{cblock}
 
 \subsection{Zentrale Datentypen}
 
 \subsubsection{\c{GameState}}
 
+Stellt den aktuellen Status des Spiels dar.
+
 \begin{cblock}
 struct GameState {
+	int			numPlayers;
 	Player *	players;
 	Ball		ball;
 };
 \end{cblock}
 
 \subsubsection{\c{Player}}
+
+Beinhaltet Informationen zu einem Spieler.
 
 \begin{cblock}
 struct Player {
@@ -136,6 +151,8 @@ struct Player {
 
 \subsubsection{\c{Ball}}
 
+Speichert Position und Bewegungsvektor des Spielballs.
+
 \begin{cblock}
 struct Ball {
 	Point2D		position;
@@ -144,6 +161,8 @@ struct Ball {
 \end{cblock}
 
 \subsubsection{\c{Point2D}}
+
+Beinhaltet einen einfachen 2D-Punkt.
 
 \begin{cblock}
 struct Point2D {
@@ -154,10 +173,24 @@ struct Point2D {
 
 \subsubsection{\c{Vector2D}}
 
+Beinhaltet einen einfachen 2D-Bewegungsvektor.
+
 \begin{cblock}
 struct Vector2D {
 	float dx;
 	float dy;
+};
+\end{cblock}
+
+\subsubsection{\c{InputState}}
+
+Speichert Informationen zum aktuellen Zustand von Maus und Tastatur. Um den Tasten eine Bedeutung zu geben, werden in der Eingabekomponente Variablen definiert, die die Indizes der Steuerungstasten im \c{keys}-Array beinhalten.
+
+\begin{cblock}
+struct InputState {
+	int		numKeys;
+	int *	keys;
+	Point2D	mouse;
 };
 \end{cblock}
 
