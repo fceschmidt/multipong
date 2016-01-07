@@ -1,22 +1,37 @@
 CC = gcc
 CFLAGS = -c -Wall
+CRELEASEFLAGS = $(CFLAGS) -O2
+CDEBUGFLAGS = $(CFLAGS) -DDEBUG -g
 LD = $(CC)
 LDFLAGS = -lGL -lGLU
 
-TARGET = ../build/multipong
+RELEASETARGET = ../build/release/multipong
+DEBUGTARGET = ../build/debug/multipong
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
+RELEASEOBJECTS = $(patsubst %.c, ../build/release/%.o, $(wildcard *.c))
+DEBUGOBJECTS = $(patsubst %.c, ../build/debug/%.o, $(wildcard *.c))
 
-debug: CFLAGS += -DDEBUG -g
+debug: $(DEBUGTARGET)
 
-release: CFLAGS += -O2
-release: $(TARGET)
+release: $(RELEASETARGET)
 
-$(TARGET): $(OBJECTS)
-	$(LD) -o $@ ../build/$^ $(LDFLAGS)
+$(RELEASETARGET): $(RELEASEOBJECTS)
+	$(LD) -o $@ $^ $(LDFLAGS)
 
-%.o: %.c
-	$(CC) $(CFLAGS) $^ -o ../build/$@
+$(DEBUGTARGET): $(DEBUGOBJECTS)
+	$(LD) -o $@ $^ $(LDFLAGS)
+
+../build/release/%.o: %.c
+	$(CC) $(CRELEASEFLAGS) $^ -o $@
+
+../build/debug/%.o: %.c
+	$(CC) $(CDEBUGFLAGS) $^ -o $@
 
 clean:
 	rm -f $(TARGET) $(OBJECTS)
+
+execute_release:
+	../build/release/multipong
+
+execute_debug:
+	../build/debug/multipong
