@@ -28,7 +28,7 @@ $(DEBUGTARGET): $(DEBUGOBJECTS)
 	$(CC) $(CDEBUGFLAGS) $^ -o $@
 
 clean:
-	rm -f $(TARGET) $(OBJECTS)
+	rm -f $(RELEASETARGET) $(DEBUGTARGET) $(RELEASEOBJECTS) $(DEBUGOBJECTS)
 
 execute_release:
 	../build/release/multipong
