@@ -1,9 +1,9 @@
 CC = gcc
-CFLAGS = -c -Wall
+CFLAGS = -c -Wall `sdl-config --cflags`
 CRELEASEFLAGS = $(CFLAGS) -O2
 CDEBUGFLAGS = $(CFLAGS) -DDEBUG -g
 LD = $(CC)
-LDFLAGS = -lGL -lGLU
+LDFLAGS = -lGL -lGLU `sdl-config --libs` -lSDL_net
 
 RELEASETARGET = ../build/release/multipong
 DEBUGTARGET = ../build/debug/multipong
