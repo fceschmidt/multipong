@@ -11,8 +11,10 @@ DEBUGTARGET = ../build/debug/multipong
 RELEASEOBJECTS = $(patsubst %.c, ../build/release/%.o, $(wildcard *.c))
 DEBUGOBJECTS = $(patsubst %.c, ../build/debug/%.o, $(wildcard *.c))
 
+.PHONY: debug
 debug: $(DEBUGTARGET)
 
+.PHONY: release
 release: $(RELEASETARGET)
 
 $(RELEASETARGET): $(RELEASEOBJECTS)
@@ -27,11 +29,14 @@ $(DEBUGTARGET): $(DEBUGOBJECTS)
 ../build/debug/%.o: %.c
 	$(CC) $(CDEBUGFLAGS) $^ -o $@
 
+.PHONY: clean
 clean:
 	rm -f $(RELEASETARGET) $(DEBUGTARGET) $(RELEASEOBJECTS) $(DEBUGOBJECTS)
 
+.PHONY: execute_release
 execute_release:
 	../build/release/multipong
 
+.PHONY: execute_debug
 execute_debug:
 	../build/debug/multipong
