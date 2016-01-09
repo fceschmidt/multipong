@@ -1,4 +1,5 @@
 #include "Program.h"
+#include "Network.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,6 +8,9 @@ static void DestroyResources( void );
 static int ReadArguments( int argc, char *argv[] );
 
 static int ArgumentHelp( void );
+// TODO: REMOVE!
+static int ArgumentServer( void );
+static int ArgumentClient( void );
 
 /*
 ==========================================================
@@ -32,7 +36,9 @@ struct ArgumentNameFunctionCouple {
 // The map of names and functions for the command line options parser.
 // TODO: Add complete list of options HERE.
 static struct ArgumentNameFunctionCouple argumentNameFunctionMap[] = {
-	{ .name = "--help", .function = &ArgumentHelp }
+	{ .name = "--help", .function = &ArgumentHelp },
+	{ .name = "--server", .function = &ArgumentServer },
+	{ .name = "--client", .function = &ArgumentClient }
 };
 
 /*
@@ -120,5 +126,23 @@ Prints a help message.
 */
 int ArgumentHelp( void ) {
 	printf( "Welcome to multipong. There is no help available at the moment, sorry!\n" );
+	return 0;
+}
+
+int ArgumentClient( void ) {
+	InitializeNetwork();
+	Connect( 0, "127.0.0.1", NETWORK_STANDARD_SERVER_PORT );
+	while( 1 ) {
+		ProcessLobby();
+	}
+	return 0;
+}
+
+int ArgumentServer( void ) {
+	InitializeNetwork();
+	Connect( 1, NULL, NETWORK_STANDARD_SERVER_PORT );
+	while( 1 ) {
+		ProcessLobby();
+	}
 	return 0;
 }
