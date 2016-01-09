@@ -46,8 +46,9 @@ static int isConnected = 0;
 static int isInitialized = 0;
 
 // A variable for the current socket.
-static TCPsocket activeSocket = NULL;
-static UDPsocket udpSocket = NULL;
+static TCPsocket 		activeSocket = NULL;
+static SDLNet_SocketSet	activeSocketSet = NULL;
+static UDPsocket 		udpSocket = NULL;
 
 // Helpers for Connect
 static int ConnectLocalServer( uint16_t localPort );
@@ -212,6 +213,9 @@ static int ConnectRemoteServer( const char *remoteAddress, uint16_t remotePort )
 	isConnected = 1;
 	activeSocket = client;
 
+	activeSocketSet = SDLNet_AllocSocketSet( 1 );
+	SDLNet_TCP_AddSocket( activeSocketSet, client );
+
 	return 0;
 }
 
@@ -357,6 +361,7 @@ static int ProcessLobbyServer( void ) {
 						name[stringLength] = '\0';
 						DebugPrintF( "Client #%d is now called %s.", client, name );
 						ServerHandleClientMyName( client, name );
+						//return 10;
 						break;
 				}
 				bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
@@ -398,12 +403,12 @@ broadcasts the packet to all other clients.
 */
 static void ServerHandleClientMyName( int playerId, char *name ) {
 	clients[playerId].alias = name;
-	char *packet = malloc( 12 + strlen( name ) + 1 );
-	SDLNet_Write32( ( int )PID_MY_NAME,			&packet[0] );
-	SDLNet_Write32( 12 + strlen( name ) + 1,	&packet[4] );
-	SDLNet_Write32( playerId,					&packet[8] );
-	strcpy( &packet[12], name );
-	BroadcastPacketToClients( packet, 12 + strlen( name ) + 1 );
+	char *packet = malloc( 12 + strlen( name ) );
+	SDLNet_Write32( ( int )PID_JOIN,		&packet[0] );
+	SDLNet_Write32( 12 + strlen( name ),	&packet[4] );
+	SDLNet_Write32( playerId,				&packet[8] );
+	strncpy( &packet[12], name, strlen( name ) );
+	BroadcastPacketToClients( packet, 12 + strlen( name ) );
 	free( packet );
 }
 
@@ -447,6 +452,7 @@ static int BroadcastPacketToClients( const void *data, int length ) {
 	int client;
 	for( client = 0; client < numClients; client++ ) {
 		if( clients[client].socket ) {
+			DebugPrintF( "Broadcasting a %d packet.", SDLNet_Read32( data ) );
 			SDLNet_TCP_Send( clients[client].socket, data, length );
 		}
 	}
@@ -463,7 +469,7 @@ PID_JOIN, PID_YOUR_ID and PID_START_GAME
 */
 static int ProcessLobbyClient( void ) {
 	char 	bytes[1024];
-	int		numBytes = SDLNet_TCP_Recv( activeSocket, bytes, sizeof( bytes ) );
+	int		numBytes = NonBlockingRecv( activeSocket, activeSocketSet, bytes, sizeof( bytes ) );
 	int		endOfStream = 0;
 	int		bReadPosition = 0;
 
@@ -501,7 +507,7 @@ static int ProcessLobbyClient( void ) {
 				endOfStream = 1;
 			}
 		}
-		numBytes = SDLNet_TCP_Recv( activeSocket, bytes, sizeof( bytes ) );
+		numBytes = NonBlockingRecv( activeSocket, activeSocketSet, bytes, sizeof( bytes ) );
 		bReadPosition = 0;
 	}
 
@@ -642,16 +648,16 @@ The in-game client loop.
 */
 static int ProcessInGameClient( struct GameState *state ) {
 	// TODO: Implement this functionality.
-	UDPpacket packet;
-	packet.channel = thisClient;
-	packet.data = "0";
-	packet.len = 1;
-	packet.maxlen = 1;
-	packet.address = *SDLNet_TCP_GetPeerAddress( activeSocket );
-	SDLNet_UDP_Send( udpSocket, thisClient, &packet );
+	UDPpacket *packet;
+	packet = SDLNet_AllocPacket( 512 );
+	packet->channel = thisClient;
+	strcpy( packet->data, "300\0" );
+	packet->address = *SDLNet_TCP_GetPeerAddress( activeSocket );
+	packet->address.port = STANDARD_UDP_SERVER_PORT;
+	SDLNet_UDP_Send( udpSocket, thisClient, packet );
+	DebugPrintF( "%s", packet->data );
 	return 0;
 }
-
 
 /*
 ====================
@@ -662,8 +668,11 @@ The in-game server loop.
 */
 static int ProcessInGameServer( struct GameState *state ) {
 	// TODO: Implement.
-	UDPpacket packet;
-	SDLNet_UDP_Recv( udpSocket, &packet );
-	printf( "%c", packet.data[0] );
+	UDPpacket *packet;
+	packet = SDLNet_AllocPacket( 512 );
+	if( SDLNet_UDP_Recv( udpSocket, packet ) == 1 ) {
+		printf( "%s", packet->data );
+	}
+	SDLNet_FreePacket( packet );
 	return 0;
 }
