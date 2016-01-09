@@ -8,10 +8,12 @@
 static FILE *fp;
 
 int InitializeDebug() {
-	fp = fopen("Debug.log", "at");
+	fp = fopen("Debug.log", "w");
+	if( fp ) {
+			fprintf( fp, "\n\n====================\nDebugger initialized.\n====================\n" );
+	}
 	return fp != NULL;
 }
-
 
 int DebugPrintF( const char *format , ... ){
 	va_list args;
@@ -23,9 +25,11 @@ int DebugPrintF( const char *format , ... ){
 	strcpy( Formatstring, format );
 	strcat( Formatstring, "\n" );
 
-	va_start( args, Formatstring );
-	vprintf( Formatstring, args );
+	va_start( args, format );
+	vfprintf( fp, Formatstring, args );
 	va_end( args );
+
+	fflush( fp );
 	return 0;
 }
 

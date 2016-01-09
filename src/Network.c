@@ -95,6 +95,7 @@ int InitializeNetwork( void ) {
 
 	// Initialize SDL_net and return on error.
 	result = SDLNet_Init();
+	DebugAssert( !result );
 	if( result ) {
 		return result;
 	}
@@ -556,13 +557,14 @@ Handles when the server starts the game.
 static void ClientHandleServerStartGame() {
 	// TODO: Implement this functionality.
 	udpSocket = SDLNet_UDP_Open( 0 );
+	DebugAssert( udpSocket );
 	if( !udpSocket ) {
-		DebugPrintF( "Error: SDLNet_UDP_Open failed! Aborting..." );
 		return;
 	}
 
 	IPaddress *serverAddress = SDLNet_TCP_GetPeerAddress( activeSocket );
-	///SDLNet_UDP_Bind( udpSocket, thisClient, serverAddress );
+	serverAddress->port = STANDARD_UDP_SERVER_PORT;
+	SDLNet_UDP_Bind( udpSocket, thisClient, serverAddress );
 }
 
 /*
@@ -656,7 +658,7 @@ static int ProcessInGameClient( struct GameState *state ) {
 	strcpy( packet->data, "300\0" );
 	packet->address = *SDLNet_TCP_GetPeerAddress( activeSocket );
 	packet->address.port = STANDARD_UDP_SERVER_PORT;
-	DebugPrintF( "SDLNet_UDP_Send( %d, %d, %s ) = %d", udpSocket, thisClient, packet->data, SDLNet_UDP_Send( udpSocket, thisClient, packet ));
+	SDLNet_UDP_Send( udpSocket, thisClient, packet );
 	return 0;
 }
 
@@ -671,9 +673,7 @@ static int ProcessInGameServer( struct GameState *state ) {
 	// TODO: Implement.
 	UDPpacket *packet;
 	packet = SDLNet_AllocPacket( 512 );
-	if( SDLNet_UDP_Recv( udpSocket, packet ) != 0 ) {
-		DebugPrintF( "%s", packet->data );
-	}
+	SDLNet_UDP_Recv( udpSocket, packet );
 	SDLNet_FreePacket( packet );
 	return 0;
 }

@@ -61,7 +61,7 @@ int InitializeProgram( int argc, char *argv[] ) {
 	ReadArguments( argc, argv );
 	
 	// TODO: Remove this hello message and print it in debug.
-	printf( "Successfully started multipong.\n" );
+	DebugPrintF( "Successfully started multipong." );
 	return 0;
 }
 

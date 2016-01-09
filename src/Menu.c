@@ -5,6 +5,9 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_net.h>
 #include "Network.h"
+#include "Debug/Debug.h"
+
+#define SANS_FONT_FILE "Assets/OpenSans-Regular.ttf"
 
 /*
 ==========================================================
@@ -31,29 +34,39 @@ static Button_t 	startButton;
 static char * 		username;
 
 static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
-static int Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , int *menuState, Button_t *tabOrder );
+
+static void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Window *sdlWindow );
+static int EventCheckMainMenu( Button_t *tabOrder , int *marked , int *menuState );
+static int EventCheckLobby( Button_t *tabOrder , int *marked , int *menuState );
 static int EventCheck( Button_t *tabOrder , int *marked , int *menuState );
+static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState );
+static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , int *menuState );
 static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState );
+static int Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , int *menuState, Button_t *tabOrder );
+static void GoDown( int *marked );
+static void GoUp( int *marked );
+
 static void HostGame( void );
 static void JoinGame( void );
 static void Options( void );
-static void GoDown( int *marked );
-static void GoUp( int *marked );
 
 /*
 ==========================================================
 function that loops the menu. To be called in the main unit.
 ==========================================================
 */
-void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Window *sdlWindow ){
+static void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Window *sdlWindow ) {
 	int 		w, h, done = 0;
 	char		array[40];
 	SDL_Rect	inputRect;
-	TTF_Font *	sans = TTF_OpenFont( "Verdana.ttf", 500 );
+	TTF_Font *	sans = TTF_OpenFont( SANS_FONT_FILE, 500 );
 	SDL_Color 	color = { 0, 255, 0 };
 
+	DebugPrintF( "TextInput( %s, %s, %d, %d ) called.", description, text, renderer, sdlWindow );
 	SDL_GetWindowSize( sdlWindow, &w, &h );
+	DebugPrintF( "SDL_GetWindowSize returned %d x %d pixels.", w, h );
 	SDL_StartTextInput();
+	DebugPrintF( "Started text input." );
 	while ( !done ) {
 		SDL_Event event;
 		if ( SDL_PollEvent( &event ) ) {
@@ -70,6 +83,7 @@ void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Windo
 					break;
 			}
 		}
+
 		SDL_RenderClear( renderer );
 		strcpy( array, description );
 		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, strcat( array, text ), color );
@@ -79,22 +93,26 @@ void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Windo
 		inputRect.x = w /2 - inputRect.w/2;
 		inputRect.y = h /2 - inputRect.h/2;
 		SDL_RenderCopy( renderer, message, NULL, &inputRect );
+		SDL_RenderPresent( renderer );
 		SDL_DestroyTexture( message );
 		SDL_FreeSurface( surfaceMessage );
-		SDL_RenderPresent( renderer );
 	}
+	DebugPrintF( "Text input has finished." );
 }
 
 int ShowMenu( void ) {
-	SDL_Init( SDL_INIT_VIDEO );
-	TTF_Init();
+	DebugPrintF( "ShowMenu called." );
+	DebugAssert( !SDL_Init( SDL_INIT_VIDEO ) );
+	DebugAssert( !TTF_Init() );
 	username = malloc( sizeof( char ) * 30 );
 	username[0] = '\0';
 	int marked = 0;
 	int menuState = 1;
 	SDL_Window *sdlWindow = SDL_CreateWindow( "Hello World!", 100, 100, 1024, 768, SDL_WINDOW_SHOWN );
+	DebugAssert( sdlWindow );
 	SDL_Renderer* renderer = NULL;
 	renderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
+	DebugAssert( renderer );
 	Button_t tabOrder[4];
 	InitializeMenuElements( tabOrder, renderer, sdlWindow );
 	TextInput( "Username:", username, renderer, sdlWindow );
@@ -124,7 +142,7 @@ static int Menu ( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , 
 Checks for keyboard input and switches button states
 ==========================================================
 */
-int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState ){
+static int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState ) {
 	SDL_Event event;
 	while( SDL_PollEvent( &event ) ){
 		if( event.type == SDL_KEYDOWN ) {
@@ -160,7 +178,7 @@ int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState ){
 	return 0;
 }
 
-int EventCheckLobby (Button_t *tabOrder , int *marked , int *menuState ){
+static int EventCheckLobby (Button_t *tabOrder , int *marked , int *menuState ) {
 	SDL_Event event;
 	while( SDL_PollEvent( &event ) ){
 		switch( event.type ){
@@ -214,7 +232,7 @@ void GetUserName( char* Name ){
 Renders all the buttons
 ==========================================================
 */
-int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , int *menuState ){
+static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , int *menuState ) {
 	int 		w, h, i, n;
 	char *		playerNames[6];
 	TTF_Font *	sans = TTF_OpenFont( "Verdana.ttf", 500 );
@@ -265,7 +283,7 @@ int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL
 	return 0;
 }
 
-int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState ) {
+static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState ) {
 	int 		w, h, i;
 	SDL_Rect 	backgroundRect;
 	SDL_Rect 	buttonRect;
@@ -329,7 +347,8 @@ Initializes the elements of the main menu.
 */
 static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow ) {
 	int w,h;
-	SDL_GetWindowSize(sdlWindow,&w,&h);
+	SDL_GetWindowSize( sdlWindow, &w, &h );
+	DebugPrintF( "SDL_GetWindowSize returned %d x %d pixels.", w, h );
 	SDL_Surface *temp;
 	temp = IMG_Load( "ButtonImages/Start.png" );
 	startButton.Selected = SDL_CreateTextureFromSurface( renderer, temp );
@@ -357,6 +376,8 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 	tabOrder[3].Selected = SDL_CreateTextureFromSurface( renderer, temp );
 	temp = IMG_Load( "ButtonImages/Exit(Unselected).png" );
 	tabOrder[3].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+	DebugPrintF( "Loaded all menu images." );
+	DebugAssert( startButton.Selected && startButton.NotSelected && frameTexture && titleTexture && backgroundTexture );
 
 	tabOrder[0].Hoehe = 0.15f * h;
 	tabOrder[1].Hoehe = 0.15f * h;
@@ -374,6 +395,7 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 	tabOrder[1].y = ( 2 * h ) / 5;
 	tabOrder[2].y = ( 3 * h ) / 5;
 	tabOrder[3].y = ( 4 * h ) / 5;
+	DebugPrintF( "Assigned all button positions." );
 }
 
 /*
