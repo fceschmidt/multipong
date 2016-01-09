@@ -315,7 +315,6 @@ static int ProcessLobbyServer( void ) {
 					}
 				}
 				numBytes = SDLNet_TCP_Recv( clients[client].socket, bytes, sizeof( bytes ) );
-				printf( "numBytes: %d\n", numBytes );
 				bReadPosition = 0;
 			}
 		}
