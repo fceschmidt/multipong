@@ -59,7 +59,7 @@ static void TextInput( char *description, char *text, SDL_Renderer *renderer, SD
 	int 		w, h, done = 0;
 	char		array[40];
 	SDL_Rect	inputRect;
-	TTF_Font *	sans = TTF_OpenFont( SANS_FONT_FILE, 500 );
+	TTF_Font *	sans = TTF_OpenFont( SANS_FONT_FILE, 256 );
 	SDL_Color 	color = { 0, 255, 0 };
 
 	DebugPrintF( "TextInput( %s, %s, %d, %d ) called.", description, text, renderer, sdlWindow );
@@ -113,6 +113,7 @@ int ShowMenu( void ) {
 	SDL_Renderer* renderer = NULL;
 	renderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
 	DebugAssert( renderer );
+	DebugAssert( SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) );
 	Button_t tabOrder[4];
 	InitializeMenuElements( tabOrder, renderer, sdlWindow );
 	TextInput( "Username:", username, renderer, sdlWindow );
@@ -235,7 +236,7 @@ Renders all the buttons
 static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , int *menuState ) {
 	int 		w, h, i, n;
 	char *		playerNames[6];
-	TTF_Font *	sans = TTF_OpenFont( "Verdana.ttf", 500 );
+	TTF_Font *	sans = TTF_OpenFont( SANS_FONT_FILE, 500 );
 	SDL_Color 	white = {255, 255, 255};
 
 	GetPlayerList( playerNames, &n );

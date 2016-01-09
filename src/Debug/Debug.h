@@ -7,7 +7,7 @@ int DebugPrintF (const char *format , ... ) ;
 int CloseDebug ();
 
 #define DebugAssert( x ) if ( !( x ) ) { \
-	DebugPrintF( "----[FAIL]----: %s.", #x );\
+	DebugPrintF( "----[FAIL]----: %s\n\t@%s (%s:%d)", #x, __func__, __FILE__, __LINE__ );\
 } else { \
 	DebugPrintF( "++++[PASS]++++: %s", #x );\
 }
