@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 static void DestroyResources( void );
 static int ReadArguments( int argc, char *argv[] );
@@ -146,7 +147,12 @@ int ArgumentClient( void ) {
 int ArgumentServer( void ) {
 	InitializeNetwork();
 	Connect( 1, NULL, NETWORK_STANDARD_SERVER_PORT );
-	while( !ProcessLobby() ) ;
+	time_t start = time( NULL );
+	time_t end = start + 10;
+	while( time( NULL ) < end ) {
+		ProcessLobby();
+	}
+	DebugPrintF( "Start" );
 	NetworkStartGame( STANDARD_UDP_SERVER_PORT );
 	while( 1 ) {
 		ProcessInGame( NULL );

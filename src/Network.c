@@ -70,7 +70,7 @@ static void IssueAllJoins( TCPsocket socket );
 static int ProcessLobbyClient( void );
 static void ClientHandleClientJoin( int playerId, char *name );
 static void ClientHandleServerYourId( int newId );
-static void ClientHandleServerStartGame( int port );
+static void ClientHandleServerStartGame();
 
 // Functions for ingame state
 static int ProcessInGameServer( struct GameState *state );
@@ -553,16 +553,16 @@ ClientHandleServerStartGame
 Handles when the server starts the game.
 ====================
 */
-static void ClientHandleServerStartGame( int port ) {
+static void ClientHandleServerStartGame() {
 	// TODO: Implement this functionality.
-	udpSocket = SDLNet_UDP_Open( ( uint16_t )port );
+	udpSocket = SDLNet_UDP_Open( 0 );
 	if( !udpSocket ) {
 		DebugPrintF( "Error: SDLNet_UDP_Open failed! Aborting..." );
 		return;
 	}
 
 	IPaddress *serverAddress = SDLNet_TCP_GetPeerAddress( activeSocket );
-	SDLNet_UDP_Bind( udpSocket, thisClient, serverAddress );
+	///SDLNet_UDP_Bind( udpSocket, thisClient, serverAddress );
 }
 
 /*
@@ -630,6 +630,8 @@ int NetworkStartGame( uint16_t udpPort ) {
 		return -1;
 	}
 
+	DebugPrintF( "udpPort %d", udpPort );
+
 	// Broadcast connection info
 	char packet[12];
 	SDLNet_Write32( ( int )PID_START_GAME,	&packet[0] );
@@ -654,8 +656,7 @@ static int ProcessInGameClient( struct GameState *state ) {
 	strcpy( packet->data, "300\0" );
 	packet->address = *SDLNet_TCP_GetPeerAddress( activeSocket );
 	packet->address.port = STANDARD_UDP_SERVER_PORT;
-	SDLNet_UDP_Send( udpSocket, thisClient, packet );
-	DebugPrintF( "%s", packet->data );
+	DebugPrintF( "SDLNet_UDP_Send( %d, %d, %s ) = %d", udpSocket, thisClient, packet->data, SDLNet_UDP_Send( udpSocket, thisClient, packet ));
 	return 0;
 }
 
@@ -670,8 +671,8 @@ static int ProcessInGameServer( struct GameState *state ) {
 	// TODO: Implement.
 	UDPpacket *packet;
 	packet = SDLNet_AllocPacket( 512 );
-	if( SDLNet_UDP_Recv( udpSocket, packet ) == 1 ) {
-		printf( "%s", packet->data );
+	if( SDLNet_UDP_Recv( udpSocket, packet ) != 0 ) {
+		DebugPrintF( "%s", packet->data );
 	}
 	SDLNet_FreePacket( packet );
 	return 0;

@@ -1,4 +1,5 @@
 #include "Program.h"
+#include "Menu.h"
 
 /*
 ====================
@@ -17,6 +18,7 @@ int main( int argc, char *argv[] ) {
 	}
 
 	// TODO: Implement the rest.
+	ShowMenu();
 	
 	// Return 0 otherwise.
 	return 0;
