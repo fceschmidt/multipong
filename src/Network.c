@@ -532,3 +532,23 @@ static void RemovePlayer( int playerId ) {
 	}
 	numClients--;
 }
+
+/*
+====================
+GetPlayerList
+
+Returns a list of player names into players.
+====================
+*/
+int GetPlayerList( playerInfo_t *players, int *numPlayers ) {
+	*numPlayers = numClients;
+	if( !players ) {
+		return -1;
+	}
+
+	int client;
+	for( client = 0; client < numClients; client++ ) {
+		players[i] = clients[client].alias;
+	}
+	return 0;
+}
