@@ -12,109 +12,99 @@ A struct for a button in the main menu
 ==========================================================
 */
 typedef struct {
-    char*    		Text;
-    int      		x;
-    int      		y;
-    int      		Hoehe;
-    int		 		Breite;
-    int      		RValue;
-    int      		GValue;
-    int      		BValue;
-    SDL_Texture* 	NotSelected;
-    SDL_Texture* 	Selected;
+	char*    		Text;
+	int      		x;
+	int      		y;
+	int      		Hoehe;
+	int		 		Breite;
+	int      		RValue;
+	int      		GValue;
+	int      		BValue;
+	SDL_Texture* 	NotSelected;
+	SDL_Texture* 	Selected;
 }Button_t;
 
-static void GoDown( int *Marked );
-static void GoUp( int *Marked );
+static SDL_Texture *backgroundTexture;
+static SDL_Texture *titleTexture;
+static SDL_Texture *frameTexture;
+static Button_t 	startButton;
+static char * 		username;
 
-static SDL_Texture *Background;
-static SDL_Texture *Titel;
-static SDL_Texture *Frame;
-static Button_t 	StartKnopf;
-static char * 		UserName;
+static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
+static int Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , int *menuState, Button_t *tabOrder );
+static int EventCheck( Button_t *tabOrder , int *marked , int *menuState );
+static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState );
+static void HostGame( void );
+static void JoinGame( void );
+static void Options( void );
+static void GoDown( int *marked );
+static void GoUp( int *marked );
 
 /*
 ==========================================================
 function that loops the menu. To be called in the main unit.
 ==========================================================
 */
-void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Window *m_window ){
-    int 		w, h, done = 0;
-    int 		cursor;
-    int 		selectionLength;
-    char * 		composition;
-    char		array[40];
-    SDL_Rect	inputRect;
-    TTF_Font *	sans = TTF_OpenFont( "Verdana.ttf", 500 );
-    SDL_Color 	color = { 0, 255, 0 };
+void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Window *sdlWindow ){
+	int 		w, h, done = 0;
+	char		array[40];
+	SDL_Rect	inputRect;
+	TTF_Font *	sans = TTF_OpenFont( "Verdana.ttf", 500 );
+	SDL_Color 	color = { 0, 255, 0 };
 
-    SDL_GetWindowSize( m_window, &w, &h );
-    SDL_StartTextInput();
-    while ( !done ) {
-        SDL_Event event;
-        if ( SDL_PollEvent( &event ) ) {
-            switch ( event.type ) {
-                case SDL_KEYDOWN:
-                    /* Quit */
-                    if ( event.key.keysym.sym == SDLK_RETURN){
-                        done = 1;
-                    }
-                    break;
-                case SDL_TEXTINPUT:
-                    /* Add new text onto the end of our text */
-                    strcat( text, event.text.text );
-                    break;
-                case SDL_TEXTEDITING:
-                    /*
-                    Update the composition text.
-                    Update the cursor position.
-                    Update the selection length (if any).
-                    */
-                    composition = event.edit.text;
-                    cursor = event.edit.start;
-                    selectionLength = event.edit.length;
-                    break;
-            }
-        }
-        SDL_RenderClear( renderer );
-        strcpy( array, description );
-        SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, strcat( array, text ), color );
-        SDL_Texture* message = SDL_CreateTextureFromSurface( renderer, surfaceMessage );
-        inputRect.w = 300;
-        inputRect.h = 70 ;
-        inputRect.x = w /2 - inputRect.w/2;
-        inputRect.y = h /2 - inputRect.h/2;
-        SDL_RenderCopy( renderer, message, NULL, &inputRect );
-        SDL_DestroyTexture( message );
-        SDL_FreeSurface( surfaceMessage );
-        SDL_RenderPresent( renderer );
-    }
+	SDL_GetWindowSize( sdlWindow, &w, &h );
+	SDL_StartTextInput();
+	while ( !done ) {
+		SDL_Event event;
+		if ( SDL_PollEvent( &event ) ) {
+			switch ( event.type ) {
+				case SDL_KEYDOWN:
+					/* Quit */
+					if ( event.key.keysym.sym == SDLK_RETURN){
+						done = 1;
+					}
+					break;
+				case SDL_TEXTINPUT:
+					/* Add new text onto the end of our text */
+					strcat( text, event.text.text );
+					break;
+			}
+		}
+		SDL_RenderClear( renderer );
+		strcpy( array, description );
+		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, strcat( array, text ), color );
+		SDL_Texture* message = SDL_CreateTextureFromSurface( renderer, surfaceMessage );
+		inputRect.w = 300;
+		inputRect.h = 70 ;
+		inputRect.x = w /2 - inputRect.w/2;
+		inputRect.y = h /2 - inputRect.h/2;
+		SDL_RenderCopy( renderer, message, NULL, &inputRect );
+		SDL_DestroyTexture( message );
+		SDL_FreeSurface( surfaceMessage );
+		SDL_RenderPresent( renderer );
+	}
 }
 
-
-int ShowMenu () {
-    InitializeNetwork();
-    SDL_Init(SDL_INIT_VIDEO);
-    UserName = malloc(sizeof(char)*30);
-    UserName[0] = '\0';
-    TTF_Init();
-    int Marked,MenuState;
-    Marked = 0;
-    MenuState = 1;
-    SDL_Window *m_window = SDL_CreateWindow("Hello World!", 100, 100, 1980, 1020, SDL_WINDOW_SHOWN);
-    SDL_Renderer* renderer = NULL;
-    renderer = SDL_CreateRenderer( m_window, -1, SDL_RENDERER_ACCELERATED );
-    Button_t TabOrder[4];
-	InitializeMenuElements(TabOrder,renderer,m_window);
-	TextInput("Username:",UserName,renderer,m_window);
-	while(1){
-		if ( Menu(m_window,renderer,&Marked,&MenuState,TabOrder) == 1 ){
+int ShowMenu( void ) {
+	SDL_Init( SDL_INIT_VIDEO );
+	TTF_Init();
+	username = malloc( sizeof( char ) * 30 );
+	username[0] = '\0';
+	int marked = 0;
+	int menuState = 1;
+	SDL_Window *sdlWindow = SDL_CreateWindow( "Hello World!", 100, 100, 1024, 768, SDL_WINDOW_SHOWN );
+	SDL_Renderer* renderer = NULL;
+	renderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
+	Button_t tabOrder[4];
+	InitializeMenuElements( tabOrder, renderer, sdlWindow );
+	TextInput( "Username:", username, renderer, sdlWindow );
+	while( 1 ) {
+		if( Menu( sdlWindow, renderer, &marked, &menuState, tabOrder ) == 1 ) {
 			break;
 		}
 	}
 	return 1;
 }
-
 
 /*
 ==========================================================
@@ -122,80 +112,66 @@ Menu function. Checks for input applies the input then
 renders the buttons.
 ==========================================================
 */
-int Menu ( SDL_Window *m_window, SDL_Renderer* renderer , int *Marked , int *MenuState, Button_t *TabOrder  ){
-
-
-	if ( EventCheck(TabOrder,Marked,MenuState) == 1 ) {
- 		return 1;
+static int Menu ( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , int *menuState, Button_t *tabOrder  ) {
+	if ( EventCheck( tabOrder, marked, menuState ) == 1 ) {
+		return 1;
 	}
-	Render(TabOrder,Marked,renderer,m_window,MenuState,MenuState);
+	return Render( tabOrder, marked, renderer, sdlWindow, menuState );
 }
-
-
-
-
-
-
 
 /*
 ==========================================================
 Checks for keyboard input and switches button states
 ==========================================================
 */
-
-
-int EventCheckMainMenu (Button_t *TabOrder , int *Marked , int *MenuState ){
-
- SDL_Event event;
-	while (SDL_PollEvent( &event )){
-		switch( event.type ){
-			case SDL_KEYDOWN:
-				switch ( event.key.keysym.sym ){
-					case SDLK_UP:
-						GoUp(Marked);
-						printf("%d",*Marked);
-						break;
-					case SDLK_DOWN:
-						GoDown(Marked);
-						printf("%d",*Marked);
-						break;
-					case SDLK_RETURN:
-						switch ( *Marked ){
-							case 0:
-                            *MenuState = 2;
-							HostGame();
+int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState ){
+	SDL_Event event;
+	while( SDL_PollEvent( &event ) ){
+		if( event.type == SDL_KEYDOWN ) {
+			switch ( event.key.keysym.sym ){
+				case SDLK_UP:
+					GoUp( marked );
+					printf( "%d", *marked );
+					break;
+				case SDLK_DOWN:
+					GoDown( marked );
+					printf( "%d", *marked );
+					break;
+				case SDLK_RETURN:
+					switch ( *marked ){
+						case 0:
+							*menuState = 2;
+							 HostGame();
 							break;
-							case 1:
+						case 1:
 							JoinGame();
 							break;
-							case 2:
+						case 2:
 							Options();
 							break;
-							case 3:
+						case 3:
 							return 1;
 							break;
-						}
-						break;
-					default:
-						break;
-				}
+					}
+					break;
+			}
 		}
 	}
 	return 0;
 }
 
-int EventCheckLobby (Button_t *TabOrder , int *Marked , int *MenuState ){
- SDL_Event event;
-	while (SDL_PollEvent( &event )){
+int EventCheckLobby (Button_t *tabOrder , int *marked , int *menuState ){
+	SDL_Event event;
+	while( SDL_PollEvent( &event ) ){
 		switch( event.type ){
 			case SDL_KEYDOWN:
 				switch ( event.key.keysym.sym ){
 					case SDLK_BACKSPACE:
-                        *MenuState = 1;
+						*menuState = 1;
 						break;
-                    case SDLK_RETURN:
-                        printf("StartGame");
-                        break;
+					case SDLK_RETURN:
+						printf("StartGame");
+						break;
 					default:
 						break;
 				}
@@ -204,35 +180,33 @@ int EventCheckLobby (Button_t *TabOrder , int *Marked , int *MenuState ){
 	return 0;
 }
 
-
-int EventCheck ( Button_t *TabOrder , int *Marked , int *MenuState ) {
-       switch(*MenuState){
-        case 1:
-        EventCheckMainMenu(TabOrder,Marked,MenuState);
-        break;
-        case 2:
-        EventCheckLobby(TabOrder,Marked,MenuState);
-        break;
-        case 3:
-        break;
-        }
+static int EventCheck( Button_t *tabOrder , int *marked , int *menuState ) {
+	switch( *menuState ){
+		case 1:
+			return EventCheckMainMenu(tabOrder,marked,menuState);
+			break;
+		case 2:
+			return EventCheckLobby(tabOrder,marked,menuState);
+			break;
+	}
+	return 0;
 }
 
 
-void Options() {
-
+static void Options( void ) {
+	// TODO: Implement
 }
 
-void HostGame () {
-    Connect(1,0,NETWORK_STANDARD_SERVER_PORT);
+static void HostGame( void ) {
+	Connect( 1, 0, NETWORK_STANDARD_SERVER_PORT );
 }
 
-void JoinGame() {
-    Connect(0,"127.0.0.1",NETWORK_STANDARD_SERVER_PORT);
+static void JoinGame( void ) {
+	Connect( 0, "127.0.0.1", NETWORK_STANDARD_SERVER_PORT );
 }
 
-void GetUserName (char*Name){
-    strcpy(Name,UserName);
+void GetUserName( char* Name ){
+	strcpy( Name, username );
 }
 
 /*
@@ -240,115 +214,103 @@ void GetUserName (char*Name){
 Renders all the buttons
 ==========================================================
 */
+int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , int *menuState ){
+	int 		w, h, i, n;
+	char *		playerNames[6];
+	TTF_Font *	sans = TTF_OpenFont( "Verdana.ttf", 500 );
+	SDL_Color 	white = {255, 255, 255};
 
-int RenderLobby(TabOrder,Marked,renderer,m_window,MenuState){
-    int w,h,i,n;
-    char *Playernames[6];
-    GetPlayerList(Playernames,&n);
-    ProcessLobby();
-    TTF_Font* Sans = TTF_OpenFont("Verdana.ttf", 500);
-    SDL_Color White = {255, 255, 255};
+	GetPlayerList( playerNames, &n );
+	ProcessLobby();
 
+	SDL_Rect startRect;
+	SDL_Rect frameRect;
+	SDL_Rect backgroundRect;
+	SDL_GetWindowSize( sdlWindow, &w, &h );
 
-    SDL_Rect Start_rect;
-    SDL_Rect Frame_rect;
-    SDL_Rect Background_rect;
-    SDL_GetWindowSize(m_window,&w,&h);
+	startRect.w = 0.2 *h;
+	startRect.h = 0.2 *h;
+	startRect.x = w - startRect.w -30;
+	startRect.y = h - startRect.w -30;
 
-    Start_rect.w = 0.2 *h;
-    Start_rect.h = 0.2 *h;
-    Start_rect.x = w - Start_rect.w -30;
-    Start_rect.y = h - Start_rect.w -30;
-    Frame_rect.h = h;
-    Frame_rect.w = w/2;
-    Frame_rect.x = w/2 - Frame_rect.w;
-    Frame_rect.y = 0;
-    Background_rect.w = w;
-    Background_rect.h = h;
-    Background_rect.x = 0;
-    Background_rect.y = 0;
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer,Background,NULL,&Background_rect);
-    for (i = 0; i < n; i++){
-        SDL_Surface* surfaceMessage = TTF_RenderText_Solid(Sans, Playernames[i], White);
-        SDL_Texture* Message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+	frameRect.h = h;
+	frameRect.w = w/2;
+	frameRect.x = w/2 - frameRect.w;
+	frameRect.y = 0;
 
-        printf("%s :: %d \n",Playernames[i],n);
-        SDL_Rect Player_rect;
-        Player_rect.w = Frame_rect.w /2;
-        Player_rect.h = Frame_rect.h * 0.05;
-        Player_rect.x = (Frame_rect.w /2) - Player_rect.w /2;
-        Player_rect.y = (i * Player_rect.h*1.8f)  + Player_rect.h *5;
-        SDL_RenderCopy(renderer,Message,NULL,&Player_rect);
-        SDL_DestroyTexture(Message);
-        SDL_FreeSurface(surfaceMessage);
+	backgroundRect.w = w;
+	backgroundRect.h = h;
+	backgroundRect.x = 0;
+	backgroundRect.y = 0;
 
+	SDL_RenderClear( renderer );
+	SDL_RenderCopy( renderer, backgroundTexture, NULL, &backgroundRect );
+	for ( i = 0; i < n; i++ ){
+		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, playerNames[i], white );
+		SDL_Texture* Message = SDL_CreateTextureFromSurface( renderer, surfaceMessage );
 
-    }
-    SDL_RenderCopy(renderer,Frame,NULL,&Frame_rect);
-    SDL_RenderCopy(renderer,StartKnopf.Selected,NULL,&Start_rect);
-
-    SDL_RenderPresent(renderer);
-
-
-
-
+		printf( "%s :: %d \n", playerNames[i], n );
+		SDL_Rect Player_rect;
+		Player_rect.w = frameRect.w /2;
+		Player_rect.h = frameRect.h * 0.05;
+		Player_rect.x = ( frameRect.w / 2 ) - Player_rect.w / 2;
+		Player_rect.y = ( i * Player_rect.h * 1.8f )  + Player_rect.h * 5;
+		SDL_RenderCopy( renderer, Message, NULL, &Player_rect );
+		SDL_DestroyTexture( Message );
+		SDL_FreeSurface( surfaceMessage );
+	}
+	SDL_RenderCopy( renderer, frameTexture, NULL, &frameRect );
+	SDL_RenderCopy( renderer, startButton.Selected, NULL, &startRect );
+	SDL_RenderPresent( renderer );
+	return 0;
 }
-int RenderMainMenu(Button_t *TabOrder , int *Marked , SDL_Renderer * renderer , SDL_Window *m_window , int *MenuState) {
-    int w,h,i;
-    SDL_Rect Background_rect;
-    SDL_Rect Button_rect;
-    SDL_Rect Titel_rect;
-    SDL_GetWindowSize(m_window,&w,&h);
-    Background_rect.w = w;
-    Background_rect.h = h;
-    Background_rect.x = 0;
-    Background_rect.y = 0;
-    Titel_rect.w = w * 0.7;
-    Titel_rect.h = h/5;
-    Titel_rect.x = (w/2) - Titel_rect.w/2;
-    Titel_rect.y = 0;
 
-    SDL_RenderClear(renderer);
+int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState ) {
+	int 		w, h, i;
+	SDL_Rect 	backgroundRect;
+	SDL_Rect 	buttonRect;
+	SDL_Rect 	titleRect;
+	SDL_GetWindowSize( sdlWindow, &w, &h );
+	backgroundRect.w = w;
+	backgroundRect.h = h;
+	backgroundRect.x = 0;
+	backgroundRect.y = 0;
+	titleRect.w = w * 0.7;
+	titleRect.h = h / 5;
+	titleRect.x = ( w / 2 ) - titleRect.w / 2;
+	titleRect.y = 0;
 
-    SDL_RenderCopy(renderer,Background,NULL,&Background_rect);
-    SDL_RenderCopy(renderer,Titel,NULL,&Titel_rect);
+	SDL_RenderClear( renderer );
 
-    for ( i = 0; i<4; i++){
-    Button_rect.x = TabOrder[i].x;
-    Button_rect.y = TabOrder[i].y;
-    Button_rect.w = TabOrder[i].Breite;
-    Button_rect.h = TabOrder[i].Hoehe;
-    if (*Marked == i){
-    SDL_RenderCopy(renderer,TabOrder[i].Selected,NULL,&Button_rect);
-    } else {
-    SDL_RenderCopy(renderer,TabOrder[i].NotSelected,NULL,&Button_rect);
-    }
+	SDL_RenderCopy( renderer, backgroundTexture, NULL, &backgroundRect );
+	SDL_RenderCopy( renderer, titleTexture, NULL, &titleRect );
 
-    }
-
-
-    SDL_RenderPresent(renderer);
-
-
-
-
+	for ( i = 0; i < 4; i++ ) {
+		buttonRect.x = tabOrder[i].x;
+		buttonRect.y = tabOrder[i].y;
+		buttonRect.w = tabOrder[i].Breite;
+		buttonRect.h = tabOrder[i].Hoehe;
+		if ( *marked == i ){
+			SDL_RenderCopy( renderer, tabOrder[i].Selected, NULL, &buttonRect );
+		} else {
+			SDL_RenderCopy( renderer, tabOrder[i].NotSelected, NULL, &buttonRect );
+		}
+	}
+	SDL_RenderPresent( renderer );
+	return 0;
 }
 
 
-int Render ( Button_t *TabOrder , int *Marked , SDL_Renderer * renderer , SDL_Window *m_window , int *MenuState ) {
-    switch(*MenuState){
-        case 1:
-        RenderMainMenu(TabOrder,Marked,renderer,m_window,MenuState);
-        break;
-        case 2:
-        RenderLobby(TabOrder,Marked,renderer,m_window,MenuState);
-        break;
-        case 3:
-        break;
-
-    }
-
+static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState ) {
+	switch( *menuState ) {
+		case 1:
+			return RenderMainMenu(tabOrder,marked,renderer,sdlWindow,menuState);
+			break;
+		case 2:
+			return RenderLobby(tabOrder,marked,renderer,sdlWindow,menuState);
+			break;
+	}
+	return 0;
 }
 
 /*
@@ -356,8 +318,6 @@ int Render ( Button_t *TabOrder , int *Marked , SDL_Renderer * renderer , SDL_Wi
 Sets the RGB values of a button
 ==========================================================
 */
-
-
 #define BTN_R 255
 #define BTN_G 255
 #define BTN_B 255
@@ -367,67 +327,65 @@ Sets the RGB values of a button
 Initializes the elements of the main menu.
 ==========================================================
 */
-void InitializeMenuElements ( Button_t *TabOrder , SDL_Renderer *renderer , SDL_Window* m_window ){
-    int w,h;
-    SDL_GetWindowSize(m_window,&w,&h);
-    SDL_Surface *temp;
-    temp = IMG_Load("ButtonImages/Start.png");
-    StartKnopf.Selected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/Start(Disabled).png");
-    StartKnopf.NotSelected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/Frame.png");
-    Frame = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/Titel.png");
-    Titel = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("Background.png");
-    Background = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/HostGame(Selected).png");
-    TabOrder[0].Selected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/HostGame(Unselected).png");
-    TabOrder[0].NotSelected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/JoinGame(Selected).png");
-    TabOrder[1].Selected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/JoinGame(Unselected).png");
-    TabOrder[1].NotSelected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/Options(Selected).png");
-    TabOrder[2].Selected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/Options(Unselected).png");
-    TabOrder[2].NotSelected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/Exit(Selected).png");
-    TabOrder[3].Selected = SDL_CreateTextureFromSurface(renderer,temp);
-    temp = IMG_Load("ButtonImages/Exit(Unselected).png");
-    TabOrder[3].NotSelected = SDL_CreateTextureFromSurface(renderer,temp);
+static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow ) {
+	int w,h;
+	SDL_GetWindowSize(sdlWindow,&w,&h);
+	SDL_Surface *temp;
+	temp = IMG_Load( "ButtonImages/Start.png" );
+	startButton.Selected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/Start(Disabled).png" );
+	startButton.NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/Frame.png" );
+	frameTexture = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/Titel.png" );
+	titleTexture = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "Background.png" );
+	backgroundTexture = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/HostGame(Selected).png" );
+	tabOrder[0].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/HostGame(Unselected).png" );
+	tabOrder[0].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/JoinGame(Selected).png" );
+	tabOrder[1].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/JoinGame(Unselected).png" );
+	tabOrder[1].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/Options(Selected).png" );
+	tabOrder[2].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/Options(Unselected).png" );
+	tabOrder[2].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/Exit(Selected).png" );
+	tabOrder[3].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+	temp = IMG_Load( "ButtonImages/Exit(Unselected).png" );
+	tabOrder[3].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 
-	TabOrder[0].Hoehe = 0.15f * h;
-	printf("%d",h);
-	TabOrder[1].Hoehe = 0.15f * h;
-	TabOrder[2].Hoehe = 0.15f * h;
-	TabOrder[3].Hoehe = 0.15f * h;
-	TabOrder[0].Breite = 0.5f * w;
-	TabOrder[1].Breite = 0.5f * w;
-	TabOrder[2].Breite = 0.5f * w;
-	TabOrder[3].Breite = 0.5f * w;
-	TabOrder[0].x = (w / 2) - (TabOrder[0].Breite / 2);
-	TabOrder[1].x = (w / 2) - (TabOrder[1].Breite / 2);
-	TabOrder[2].x = (w / 2) - (TabOrder[2].Breite / 2);
-	TabOrder[3].x = (w / 2) - (TabOrder[3].Breite / 2);
-	TabOrder[0].y = h/5;
-	TabOrder[1].y = (2*h)/5;
-	TabOrder[2].y = (3*h)/5;
- 	TabOrder[3].y = (4*h)/5;
+	tabOrder[0].Hoehe = 0.15f * h;
+	tabOrder[1].Hoehe = 0.15f * h;
+	tabOrder[2].Hoehe = 0.15f * h;
+	tabOrder[3].Hoehe = 0.15f * h;
+	tabOrder[0].Breite = 0.5f * w;
+	tabOrder[1].Breite = 0.5f * w;
+	tabOrder[2].Breite = 0.5f * w;
+	tabOrder[3].Breite = 0.5f * w;
+	tabOrder[0].x = (w / 2) - (tabOrder[0].Breite / 2);
+	tabOrder[1].x = (w / 2) - (tabOrder[1].Breite / 2);
+	tabOrder[2].x = (w / 2) - (tabOrder[2].Breite / 2);
+	tabOrder[3].x = (w / 2) - (tabOrder[3].Breite / 2);
+	tabOrder[0].y = h / 5;
+	tabOrder[1].y = ( 2 * h ) / 5;
+	tabOrder[2].y = ( 3 * h ) / 5;
+	tabOrder[3].y = ( 4 * h ) / 5;
 }
-
 
 /*
 ==========================================================
 Function to GoUp one Button. Wraps if the uppermost button is selected.
 ==========================================================
 */
-static void GoUp( int *Marked ) {
-	if ( *Marked > 0 ){
-		(*Marked)--;
+static void GoUp( int *marked ) {
+	if ( *marked > 0 ){
+		( *marked )--;
 	} else {
-    	*Marked = 3;
+		*marked = 3;
 	}
 }
 
@@ -436,12 +394,10 @@ static void GoUp( int *Marked ) {
 Function to GoDown one Button. Wraps if the lowermost button is selected.
 ==========================================================
 */
-static void GoDown( int *Marked) {
-	if ( *Marked < 3 ){
-		(*Marked)++;
+static void GoDown( int *marked) {
+	if ( *marked < 3 ){
+		( *marked )++;
 	} else {
-    	*Marked = 0;
+		*marked = 0;
 	}
-
 }
-
