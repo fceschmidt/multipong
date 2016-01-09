@@ -137,28 +137,16 @@ int ArgumentHelp( void ) {
 int ArgumentClient( void ) {
 	InitializeNetwork();
 	Connect( 0, "127.0.0.1", NETWORK_STANDARD_SERVER_PORT );
-	int br;
-	while( br ) {
-		if( ProcessLobby() == GAME_START ) {
-			br = 0;
-		}
-	}
 	while( 1 ) {
-		ProcessInGame( NULL );
+		ProcessLobby();
 	}
-	return 0;
 }
 
 int ArgumentServer( void ) {
 	InitializeNetwork();
 	Connect( 1, NULL, NETWORK_STANDARD_SERVER_PORT );
-	int br;
-	while( getchar() == EOF ) {
-		ProcessLobby();
-	}
-	NetworkStartGame( STANDARD_UDP_SERVER_PORT );
 	while( 1 ) {
-		ProcessInGame( NULL );
+		ProcessLobby();
 	}
 	return 0;
 }

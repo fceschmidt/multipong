@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 #define ERROR_TCP_SOCKET_CREATION_FAILED -1
-#define PLAYER_NAME "player"
+#define PLAYER_NAME "fabian"
 
 /*
 ==========================================================
@@ -52,6 +52,7 @@ static UDPsocket udpSocket = NULL;
 // Helpers for Connect
 static int ConnectLocalServer( uint16_t localPort );
 static int ConnectRemoteServer( const char *remoteAddress, uint16_t remotePort );
+static int NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, int maxlen );
 
 static int BroadcastPacketToClients( const void *data, int length );
 
@@ -276,6 +277,23 @@ int ProcessInGame( struct GameState *state ) {
 
 /*
 ====================
+NonBlockingRecv
+
+Receives from the socket in a non-blocking fashion.
+====================
+*/
+static int NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, int maxlen ) {
+	int bPosition = 0;
+	while( SDLNet_CheckSockets( set, 0 ) > 0 && bPosition < maxlen ) {
+		if( SDLNet_SocketReady( socket ) ) {
+			SDLNet_TCP_Recv( socket, &data[bPosition++], 1 );
+		}
+	}
+	return bPosition;
+}
+
+/*
+====================
 ProcessLobbyServer
 
 Accepts incoming connections, receives information packets from clients and
@@ -316,42 +334,38 @@ static int ProcessLobbyServer( void ) {
 	// Go through the clients
 	for( client = 0; client < numClients; client++ ) {
 		// If there is a socket (so, not this client)
-		if( clients[client].socket ) {
-			// Reset endofstream and receive bytes from this client
-			endOfStream = 0;
-			if( SDLNet_CheckSockets( clients[client].socketSet, 1 ) <= 0 ) {
-				continue;
-			}
-			if( !SDLNet_SocketReady( clients[client].socket ) ) {
-				continue;
-			}
-			numBytes = SDLNet_TCP_Recv( clients[client].socket, bytes, sizeof( bytes ) );
-			// while there is something to read from and the stream hasn't ended yet
-			while( numBytes > 0 ) {
-				while( !endOfStream ) {
-					switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
-						case PID_QUIT:
-							// Handle the quit
-							ServerHandleClientQuit( client );
-							break;
-						case PID_MY_NAME:
-							// Determine length of name and call handler with the length.
-							stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 8;
-							name = malloc( stringLength + 1 );
-							strncpy( name, &bytes[bReadPosition + 8], stringLength );
-							name[stringLength] = '\0';
-							DebugPrintF( "Client #%d is now called %s.", client, name );
-							ServerHandleClientMyName( client, name );
-							break;
-					}
-					bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
-					if( bReadPosition >= numBytes ) {
-						endOfStream = 1;
-					}
+		if( !clients[client].socket ) {
+			continue;
+		}
+		// Reset endofstream and receive bytes from this client
+		endOfStream = 0;
+		numBytes = NonBlockingRecv( clients[client].socket, clients[client].socketSet, bytes, sizeof( bytes ) );
+		// while there is something to read from and the stream hasn't ended yet
+		while( numBytes > 0 ) {
+			DebugPrintF( "Received %d bytes.", numBytes );
+			while( !endOfStream ) {
+				switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
+					case PID_QUIT:
+						// Handle the quit
+						ServerHandleClientQuit( client );
+						break;
+					case PID_MY_NAME:
+						// Determine length of name and call handler with the length.
+						stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 8;
+						name = malloc( stringLength + 1 );
+						strncpy( name, &bytes[bReadPosition + 8], stringLength );
+						name[stringLength] = '\0';
+						DebugPrintF( "Client #%d is now called %s.", client, name );
+						ServerHandleClientMyName( client, name );
+						break;
 				}
-				numBytes = SDLNet_TCP_Recv( clients[client].socket, bytes, sizeof( bytes ) );
-				bReadPosition = 0;
+				bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
+				if( bReadPosition >= numBytes ) {
+					endOfStream = 1;
+				}
 			}
+			numBytes = NonBlockingRecv( clients[client].socket, clients[client].socketSet, bytes, sizeof( bytes ) );
+			bReadPosition = 0;
 		}
 	}
 	return 0;
@@ -517,6 +531,13 @@ Handles when a server tells this client its ID.
 */
 static void ClientHandleServerYourId( int newId ) {
 	thisClient = newId;
+	char *packet;
+	packet = malloc( 8 + strlen( PLAYER_NAME ) );
+	SDLNet_Write32( ( int )PID_MY_NAME, 		&packet[0] );
+	SDLNet_Write32( 8 + strlen( PLAYER_NAME ), 	&packet[4] );
+	strncpy( packet + 8, PLAYER_NAME, strlen( PLAYER_NAME ) );
+	SDLNet_TCP_Send( activeSocket, packet, 8 + strlen( PLAYER_NAME ) );
+	DebugPrintF( "I gave the server my name." );
 }
 
 /*

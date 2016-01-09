@@ -24,7 +24,7 @@ int DebugPrintF( const char *format , ... ){
 	strcat( Formatstring, "\n" );
 
 	va_start( args, Formatstring );
-	vfprintf( fp , Formatstring, args );
+	vprintf( Formatstring, args );
 	va_end( args );
 	return 0;
 }
