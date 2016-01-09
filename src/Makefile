@@ -8,8 +8,8 @@ LDFLAGS = -lGL -lGLU `sdl2-config --libs` -lSDL2_net
 RELEASETARGET = ../build/release/multipong
 DEBUGTARGET = ../build/debug/multipong
 
-RELEASEOBJECTS = $(patsubst %.c, ../build/release/%.o, $(wildcard *.c))
-DEBUGOBJECTS = $(patsubst %.c, ../build/debug/%.o, $(wildcard *.c))
+RELEASEOBJECTS = $(patsubst %.c, ../build/release/%.o, $(shell find . -name "*.c"))
+DEBUGOBJECTS = $(patsubst %.c, ../build/debug/%.o, $(shell find . -name "*.c"))
 
 .PHONY: debug
 debug: $(DEBUGTARGET)

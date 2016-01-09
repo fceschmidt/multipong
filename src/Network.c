@@ -1,4 +1,5 @@
 #include "Network.h"
+#include "Debug/Debug.h"
 #include <SDL2/SDL_net.h>
 #include <string.h>
 #include <stdio.h>
@@ -46,26 +47,34 @@ static int isInitialized = 0;
 
 // A variable for the current socket.
 static TCPsocket activeSocket = NULL;
+static UDPsocket udpSocket = NULL;
 
+// Helpers for Connect
 static int ConnectLocalServer( uint16_t localPort );
 static int ConnectRemoteServer( const char *remoteAddress, uint16_t remotePort );
 
-static int ProcessLobbyServer( void );
-static int ProcessLobbyClient( void );
 static int BroadcastPacketToClients( const void *data, int length );
 
 static int AddPlayer( struct NetworkClientInfo client );
 static void RemovePlayer( int playerId );
 
 // Functions for lobby state
+static int ProcessLobbyServer( void );
 static void ServerHandleClientQuit( int playerId );
 static void ServerHandleClientMyName( int playerId, char *name );
 static void IssueAllJoins( TCPsocket socket );
 
 // Functions for client in lobby state
+static int ProcessLobbyClient( void );
 static void ClientHandleClientJoin( int playerId, char *name );
 static void ClientHandleServerYourId( int newId );
-static void ClientHandleServerStartGame( void );
+static void ClientHandleServerStartGame( int port );
+
+// Functions for ingame state
+static int ProcessInGameServer( struct GameState *state );
+
+// Functions for client in ingame state
+static int ProcessInGameClient( struct GameState *state );
 
 static struct NetworkClientInfo clients[6];	// 6 players maximum, eh?!
 static int						numClients = 0;
@@ -79,7 +88,7 @@ Sets up the network component.
 ====================
 */
 int InitializeNetwork( void ) {
-	printf( "InitializeNetwork called.\n" );
+	DebugPrintF( "InitializeNetwork called." );	
 	int result;
 
 	// Initialize SDL_net and return on error.
@@ -128,7 +137,7 @@ Connects the network component.
 ====================
 */
 int Connect( int server, const char *remoteAddress, uint16_t port ) {
-	printf( "Connect( %d, remoteAddress, %d ) called.\n", server, port );
+	DebugPrintF( "Connect( %d, %s, %d ) called.", server, remoteAddress ? remoteAddress : "", port );	
 	// If the network component is not initialized, return error.
 	if( !isInitialized ) {
 		return -1;
@@ -151,7 +160,6 @@ Creates a server to listen for incoming connections.
 ====================
 */
 static int ConnectLocalServer( uint16_t localPort ) {
-	printf( "ConnectLocalServer called.\n" );
 	// Create a listening TCP socket on localPort
 	IPaddress 	ip;
 	TCPsocket 	listener;
@@ -186,7 +194,6 @@ Creates a socket that communicates with a remote server.
 ====================
 */
 static int ConnectRemoteServer( const char *remoteAddress, uint16_t remotePort ) {
-	printf( "ConnectRemoteServer called.\n" );
 	IPaddress	ip;
 	TCPsocket	client;
 	int			result;
@@ -207,8 +214,14 @@ static int ConnectRemoteServer( const char *remoteAddress, uint16_t remotePort )
 	return 0;
 }
 
+/*
+====================
+Disconnect
+
+Disconnects the network component's sockets.
+====================
+*/
 void Disconnect( void ) {
-	// TODO: Implement
 	if( activeSocket ) {
 		SDLNet_TCP_Close( activeSocket );
 	}
@@ -241,6 +254,28 @@ int ProcessLobby( void ) {
 
 /*
 ====================
+ProcessInGame
+
+Process packets inside the game.
+====================
+*/
+int ProcessInGame( struct GameState *state ) {
+	if( !isInitialized ) {
+		return -1;
+	}
+	if( !isConnected ) {
+		return -1;
+	}
+
+	if( isServer ) {
+		return ProcessInGameServer( state );
+	} else {
+		return ProcessInGameClient( state );
+	}
+}
+
+/*
+====================
 ProcessLobbyServer
 
 Accepts incoming connections, receives information packets from clients and
@@ -253,7 +288,7 @@ static int ProcessLobbyServer( void ) {
 	newClient = SDLNet_TCP_Accept( activeSocket );
 
 	if( newClient ) {
-		printf( "New client!\n" );
+		DebugPrintF( "A new client has connected." );
 		struct NetworkClientInfo clientInfo;
 		clientInfo.alias = NULL;
 		clientInfo.socketSet = SDLNet_AllocSocketSet( 1 );
@@ -300,12 +335,12 @@ static int ProcessLobbyServer( void ) {
 							ServerHandleClientQuit( client );
 							break;
 						case PID_MY_NAME:
-							printf( "Got PID_MY_NAME.\n" );
 							// Determine length of name and call handler with the length.
 							stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 8;
 							name = malloc( stringLength + 1 );
 							strncpy( name, &bytes[bReadPosition + 8], stringLength );
 							name[stringLength] = '\0';
+							DebugPrintF( "Client #%d is now called %s.", client, name );
 							ServerHandleClientMyName( client, name );
 							break;
 					}
@@ -422,26 +457,29 @@ static int ProcessLobbyClient( void ) {
 	int		stringLength;
 	char *	alias;
 	int		newId;
+	int		port;
 
 	while( numBytes > 0 ) {
 		while( !endOfStream ) {
 			switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
 				case PID_JOIN:
-					printf( "Got PID_JOIN.\n" );
 					playerId = SDLNet_Read32( &bytes[bReadPosition + 8] );
 					stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 12;
 					alias = malloc( stringLength + 1 );
 					strncpy( alias, &bytes[bReadPosition + 12], stringLength );
+					DebugPrintF( "Client #%d joined, his name is %s.", playerId, alias );
 					ClientHandleClientJoin( playerId, alias );
 					break;
 				case PID_YOUR_ID:
 					newId = SDLNet_Read32( &bytes[bReadPosition + 8] );
-					printf( "Got PID_YOUR_ID %d.\n", newId );
+					DebugPrintF( "I am now client #%d.", newId );
 					ClientHandleServerYourId( newId );
 					break;
 				case PID_START_GAME:
-					printf( "Got PID_START_GAME.\n" );
-					ClientHandleServerStartGame();
+					port = SDLNet_Read32( &bytes[bReadPosition + 8] );
+					DebugPrintF( "The game starts now on port %d.", port );
+					ClientHandleServerStartGame( port );
+					return GAME_START;
 					break;
 			}
 			bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
@@ -488,19 +526,17 @@ ClientHandleServerStartGame
 Handles when the server starts the game.
 ====================
 */
-static void ClientHandleServerStartGame( void ) {
+static void ClientHandleServerStartGame( int port ) {
 	// TODO: Implement this functionality.
+	udpSocket = SDLNet_UDP_Open( ( uint16_t )port );
+	if( !udpSocket ) {
+		DebugPrintF( "Error: SDLNet_UDP_Open failed! Aborting..." );
+		return;
+	}
+
+	IPaddress *serverAddress = SDLNet_TCP_GetPeerAddress( activeSocket );
+	SDLNet_UDP_Bind( udpSocket, thisClient, serverAddress );
 }
-
-/*
-====================
-ProcessInGame
-
-Process packets inside the game.
-====================
-*/
-// TODO: Implement
-//int ProcessInGame( struct GameState *state );
 
 /*
 ====================
@@ -548,7 +584,65 @@ int GetPlayerList( playerInfo_t *players, int *numPlayers ) {
 
 	int client;
 	for( client = 0; client < numClients; client++ ) {
-		players[i] = clients[client].alias;
+		players[client] = clients[client].alias;
 	}
+	return 0;
+}
+
+/*
+====================
+NetworkStartGame
+
+For use by the server only, broadcasts the packet that starts the game.
+====================
+*/
+int NetworkStartGame( uint16_t udpPort ) {
+	// Prepare UDP port
+	udpSocket = SDLNet_UDP_Open( udpPort );
+	if( !udpSocket ) {
+		return -1;
+	}
+
+	// Broadcast connection info
+	char packet[12];
+	SDLNet_Write32( ( int )PID_START_GAME,	&packet[0] );
+	SDLNet_Write32( sizeof( packet ),		&packet[4] );
+	SDLNet_Write32( udpPort,				&packet[8] );
+	BroadcastPacketToClients( packet, 12 );
+	return 0;
+}
+
+/*
+====================
+ProcessInGameClient
+
+The in-game client loop.
+====================
+*/
+static int ProcessInGameClient( struct GameState *state ) {
+	// TODO: Implement this functionality.
+	UDPpacket packet;
+	packet.channel = thisClient;
+	packet.data = "0";
+	packet.len = 1;
+	packet.maxlen = 1;
+	packet.address = *SDLNet_TCP_GetPeerAddress( activeSocket );
+	SDLNet_UDP_Send( udpSocket, thisClient, &packet );
+	return 0;
+}
+
+
+/*
+====================
+ProcessInGameServer
+
+The in-game server loop.
+====================
+*/
+static int ProcessInGameServer( struct GameState *state ) {
+	// TODO: Implement.
+	UDPpacket packet;
+	SDLNet_UDP_Recv( udpSocket, &packet );
+	printf( "%c", packet.data[0] );
 	return 0;
 }

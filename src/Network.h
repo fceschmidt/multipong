@@ -5,6 +5,8 @@
 #include "Game.h"
 
 #define NETWORK_STANDARD_SERVER_PORT ( ( uint16_t )26228 )
+#define STANDARD_UDP_SERVER_PORT ( ( uint16_t )26229 )
+#define GAME_START 20
 
 /*
 ==========================================================
@@ -22,6 +24,7 @@ int Connect( int server, const char *remoteAddress, uint16_t port );
 void Disconnect( void );
 
 int ProcessLobby( void );
+int NetworkStartGame( uint16_t udpPort );
 int ProcessInGame( struct GameState *state );
 
 int GetLocalIP( const char **string );

@@ -1,5 +1,6 @@
 #include "Program.h"
 #include "Network.h"
+#include "Debug/Debug.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -52,6 +53,9 @@ int InitializeProgram( int argc, char *argv[] ) {
 	// Register DestroyResources with atexit.
 	atexit( DestroyResources );
 
+	// Initialize debug component.
+	InitializeDebug();
+
 	// TODO: Read command line arguments.
 	ReadArguments( argc, argv );
 	
@@ -80,6 +84,7 @@ Destroys all resources used by the program.
 */
 static void DestroyResources( void ) {
 	// TODO: Call all destructors.
+	CloseDebug();
 }
 
 /*
@@ -132,8 +137,14 @@ int ArgumentHelp( void ) {
 int ArgumentClient( void ) {
 	InitializeNetwork();
 	Connect( 0, "127.0.0.1", NETWORK_STANDARD_SERVER_PORT );
+	int br;
+	while( br ) {
+		if( ProcessLobby() == GAME_START ) {
+			br = 0;
+		}
+	}
 	while( 1 ) {
-		ProcessLobby();
+		ProcessInGame( NULL );
 	}
 	return 0;
 }
@@ -141,8 +152,13 @@ int ArgumentClient( void ) {
 int ArgumentServer( void ) {
 	InitializeNetwork();
 	Connect( 1, NULL, NETWORK_STANDARD_SERVER_PORT );
-	while( 1 ) {
+	int br;
+	while( getchar() == EOF ) {
 		ProcessLobby();
+	}
+	NetworkStartGame( STANDARD_UDP_SERVER_PORT );
+	while( 1 ) {
+		ProcessInGame( NULL );
 	}
 	return 0;
 }
