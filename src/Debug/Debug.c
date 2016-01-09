@@ -29,6 +29,10 @@ int DebugPrintF( const char *format , ... ){
 	vfprintf( fp, Formatstring, args );
 	va_end( args );
 
+	va_start( args, format );
+	vprintf( Formatstring, args );
+	va_end( args );
+
 	fflush( fp );
 	return 0;
 }

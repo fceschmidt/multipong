@@ -1,5 +1,6 @@
 #include "Program.h"
 #include "Network.h"
+#include "Output.h"
 #include "Debug/Debug.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -59,6 +60,8 @@ int InitializeProgram( int argc, char *argv[] ) {
 
 	// TODO: Read command line arguments.
 	ReadArguments( argc, argv );
+
+	InitializeGraphics();
 	
 	// TODO: Remove this hello message and print it in debug.
 	DebugPrintF( "Successfully started multipong." );
@@ -142,6 +145,7 @@ int ArgumentClient( void ) {
 	while( 1 ) {
 		ProcessInGame( NULL );
 	}
+	return 0;
 }
 
 int ArgumentServer( void ) {

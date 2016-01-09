@@ -19,6 +19,8 @@ struct NetworkClientInfo {
 	char *				alias;
 	TCPsocket			socket;
 	SDLNet_SocketSet	socketSet;
+	TCPsocket 			dataSocket;
+	SDLNet_SocketSet 	dataSocketSet;
 };
 
 /*
@@ -48,11 +50,13 @@ static int isInitialized = 0;
 // A variable for the current socket.
 static TCPsocket 		activeSocket = NULL;
 static SDLNet_SocketSet	activeSocketSet = NULL;
-static UDPsocket 		udpSocket = NULL;
+static TCPsocket 		dataSocket = NULL;
+static SDLNet_SocketSet dataSocketSet = NULL;
 
 // Helpers for Connect
-static int ConnectLocalServer( uint16_t localPort );
-static int ConnectRemoteServer( const char *remoteAddress, uint16_t remotePort );
+static int ConnectLocalServer( TCPsocket *socket, uint16_t localPort );
+static int ConnectRemoteServer( TCPsocket *socket, SDLNet_SocketSet *socketSet, const char *remoteAddress, uint16_t remotePort );
+static int ConnectRemoteServerIp( TCPsocket *socket, SDLNet_SocketSet *socketSet, IPaddress *remoteAddress );
 static int NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, int maxlen );
 
 static int BroadcastPacketToClients( const void *data, int length );
@@ -149,9 +153,20 @@ int Connect( int server, const char *remoteAddress, uint16_t port ) {
 	isServer = server;
 	// Branch for server/client.
 	if( server ) {
-		return ConnectLocalServer( port );
+		if( ConnectLocalServer( &activeSocket, port ) ) {
+			struct NetworkClientInfo clientInfo;
+			clientInfo.alias = PLAYER_NAME;
+			clientInfo.socket = NULL;
+			clientInfo.socketSet = NULL;
+			clientInfo.dataSocket = NULL;
+			clientInfo.dataSocketSet = NULL;
+			AddPlayer( clientInfo );
+			return 0;
+		} else {
+			return -1;
+		}
 	} else {
-		return ConnectRemoteServer( remoteAddress, port );
+		return ConnectRemoteServer( &activeSocket, &activeSocketSet, remoteAddress, port );
 	}
 }
 
@@ -162,7 +177,7 @@ ConnectLocalServer
 Creates a server to listen for incoming connections.
 ====================
 */
-static int ConnectLocalServer( uint16_t localPort ) {
+static int ConnectLocalServer( TCPsocket *socket, uint16_t localPort ) {
 	// Create a listening TCP socket on localPort
 	IPaddress 	ip;
 	TCPsocket 	listener;
@@ -179,12 +194,7 @@ static int ConnectLocalServer( uint16_t localPort ) {
 	}
 
 	isConnected = 1;
-	activeSocket = listener;
-
-	struct NetworkClientInfo clientInfo;
-	clientInfo.alias = PLAYER_NAME;
-	clientInfo.socket = NULL;
-	AddPlayer( clientInfo );
+	*socket = listener;
 
 	return 0;
 }
@@ -196,26 +206,39 @@ ConnectRemoteServer
 Creates a socket that communicates with a remote server.
 ====================
 */
-static int ConnectRemoteServer( const char *remoteAddress, uint16_t remotePort ) {
+static int ConnectRemoteServer( TCPsocket *socket, SDLNet_SocketSet *socketSet, const char *remoteAddress, uint16_t remotePort ) {
 	IPaddress	ip;
-	TCPsocket	client;
 	int			result;
 
 	result = SDLNet_ResolveHost( &ip, remoteAddress, remotePort );
+	DebugAssert( result );
 	if( result ) {
 		return result;
 	}
 
-	client = SDLNet_TCP_Open( &ip );
+	return ConnectRemoteServerIp( socket, socketSet, &ip );
+}
+
+/*
+====================
+ConnectRemoteServerIp
+
+Connects to a remote server using an IPaddress pointer.
+====================
+*/
+static int ConnectRemoteServerIp( TCPsocket *socket, SDLNet_SocketSet *socketSet, IPaddress *remoteAddress ) {
+	TCPsocket	client;
+	
+	client = SDLNet_TCP_Open( remoteAddress );
 	if( !client ) {
 		return ERROR_TCP_SOCKET_CREATION_FAILED;
 	}
 
 	isConnected = 1;
-	activeSocket = client;
+	*socket = client;
 
-	activeSocketSet = SDLNet_AllocSocketSet( 1 );
-	SDLNet_TCP_AddSocket( activeSocketSet, client );
+	*socketSet = SDLNet_AllocSocketSet( 1 );
+	SDLNet_TCP_AddSocket( *socketSet, client );
 
 	return 0;
 }
@@ -316,6 +339,8 @@ static int ProcessLobbyServer( void ) {
 		clientInfo.alias = NULL;
 		clientInfo.socketSet = SDLNet_AllocSocketSet( 1 );
 		clientInfo.socket = newClient;
+		clientInfo.dataSocket = NULL;
+		clientInfo.dataSocketSet = NULL;
 		SDLNet_TCP_AddSocket( clientInfo.socketSet, newClient );
 		// Tell client about the rest of the world.
 		IssueAllJoins( newClient );
@@ -556,15 +581,11 @@ Handles when the server starts the game.
 */
 static void ClientHandleServerStartGame() {
 	// TODO: Implement this functionality.
-	udpSocket = SDLNet_UDP_Open( 0 );
-	DebugAssert( udpSocket );
-	if( !udpSocket ) {
-		return;
-	}
-
-	IPaddress *serverAddress = SDLNet_TCP_GetPeerAddress( activeSocket );
-	serverAddress->port = STANDARD_UDP_SERVER_PORT;
-	SDLNet_UDP_Bind( udpSocket, thisClient, serverAddress );
+	IPaddress *address = SDLNet_TCP_GetPeerAddress( activeSocket );
+	DebugAssert( address );
+	
+	address->port = NETWORK_STANDARD_DATA_PORT;
+	ConnectRemoteServerIp( &dataSocket, &dataSocketSet, address );
 }
 
 /*
@@ -626,20 +647,45 @@ For use by the server only, broadcasts the packet that starts the game.
 ====================
 */
 int NetworkStartGame( uint16_t udpPort ) {
-	// Prepare UDP port
-	udpSocket = SDLNet_UDP_Open( udpPort );
-	if( !udpSocket ) {
-		return -1;
-	}
-
-	DebugPrintF( "udpPort %d", udpPort );
-
+	// Prepare data port
+	ConnectLocalServer( &dataSocket, NETWORK_STANDARD_DATA_PORT );
+	
 	// Broadcast connection info
 	char packet[12];
 	SDLNet_Write32( ( int )PID_START_GAME,	&packet[0] );
 	SDLNet_Write32( sizeof( packet ),		&packet[4] );
 	SDLNet_Write32( udpPort,				&packet[8] );
 	BroadcastPacketToClients( packet, 12 );
+
+	// Accept all clients for the data port now.
+	// Wait until we have all clients.
+	int 		dataClients = 1;
+	int 		i;
+	IPaddress *	info;
+	IPaddress *	newInfo;
+	while( dataClients < numClients ) {
+		TCPsocket newClient = NULL;
+		newClient = SDLNet_TCP_Accept( dataSocket );
+
+		if( newClient ) {
+			newInfo = SDLNet_TCP_GetPeerAddress( newClient );
+			for( i = 0; i < numClients; i++ ) {
+				info = SDLNet_TCP_GetPeerAddress( clients[i].socket );
+				if( !info ) {
+					continue;
+				}
+				if( newInfo->host != info->host ) {
+					continue;
+				}
+
+				clients[i].dataSocketSet = SDLNet_AllocSocketSet( 1 );
+				clients[i].dataSocket = newClient;
+				SDLNet_TCP_AddSocket( clients[i].dataSocketSet, newClient );
+				dataClients++;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -651,14 +697,15 @@ The in-game client loop.
 ====================
 */
 static int ProcessInGameClient( struct GameState *state ) {
-	// TODO: Implement this functionality.
-	UDPpacket *packet;
-	packet = SDLNet_AllocPacket( 512 );
-	packet->channel = thisClient;
-	strcpy( packet->data, "300\0" );
-	packet->address = *SDLNet_TCP_GetPeerAddress( activeSocket );
-	packet->address.port = STANDARD_UDP_SERVER_PORT;
-	SDLNet_UDP_Send( udpSocket, thisClient, packet );
+	// Null pointer check
+	if( !state || !isInitialized || !isConnected  ) {
+		return -1;
+	}
+
+	// TODO: Broadcast own information from state (dataSocket)
+	// TODO: Update foreign and ball information into state (dataSocket)
+	// TODO: Register hits and score lists from activeSocket
+	
 	return 0;
 }
 
@@ -670,10 +717,14 @@ The in-game server loop.
 ====================
 */
 static int ProcessInGameServer( struct GameState *state ) {
-	// TODO: Implement.
-	UDPpacket *packet;
-	packet = SDLNet_AllocPacket( 512 );
-	SDLNet_UDP_Recv( udpSocket, packet );
-	SDLNet_FreePacket( packet );
+	// Null pointer check
+	if( !state || !isInitialized || !isConnected ) {
+		return -1;
+	}
+
+	// TODO: Update own information from clients (dataSocket)
+	// TODO: Broadcast complete GameState information (dataSocket)
+	// TODO: Broadcast hits and score lists (activeSocket)
+
 	return 0;
 }

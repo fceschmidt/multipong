@@ -7,7 +7,8 @@
 #include "Network.h"
 #include "Debug/Debug.h"
 
-#define SANS_FONT_FILE "Assets/OpenSans-Regular.ttf"
+#define ASSET_FOLDER "Assets/"
+#define SANS_FONT_FILE ASSET_FOLDER "OpenSans-Regular.ttf"
 
 /*
 ==========================================================
@@ -49,6 +50,9 @@ static void GoUp( int *marked );
 static void HostGame( void );
 static void JoinGame( void );
 static void Options( void );
+
+extern SDL_Window *GetSdlWindow( void );
+extern SDL_Renderer *GetSdlRenderer( void );
 
 /*
 ==========================================================
@@ -102,19 +106,14 @@ static void TextInput( char *description, char *text, SDL_Renderer *renderer, SD
 
 int ShowMenu( void ) {
 	DebugPrintF( "ShowMenu called." );
-	DebugAssert( !SDL_Init( SDL_INIT_VIDEO ) );
 	DebugAssert( !TTF_Init() );
 	username = malloc( sizeof( char ) * 30 );
 	username[0] = '\0';
 	int marked = 0;
 	int menuState = 1;
-	SDL_Window *sdlWindow = SDL_CreateWindow( "Hello World!", 100, 100, 1024, 768, SDL_WINDOW_SHOWN );
-	DebugAssert( sdlWindow );
-	SDL_Renderer* renderer = NULL;
-	renderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
-	DebugAssert( renderer );
-	DebugAssert( SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) );
 	Button_t tabOrder[4];
+	SDL_Window *sdlWindow = GetSdlWindow();
+	SDL_Renderer *renderer = GetSdlRenderer();
 	InitializeMenuElements( tabOrder, renderer, sdlWindow );
 	TextInput( "Username:", username, renderer, sdlWindow );
 	while( 1 ) {
@@ -351,31 +350,31 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 	SDL_GetWindowSize( sdlWindow, &w, &h );
 	DebugPrintF( "SDL_GetWindowSize returned %d x %d pixels.", w, h );
 	SDL_Surface *temp;
-	temp = IMG_Load( "ButtonImages/Start.png" );
+	temp = IMG_Load( ASSET_FOLDER "Start.png" );
 	startButton.Selected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/Start(Disabled).png" );
+	temp = IMG_Load( ASSET_FOLDER "Start(Disabled).png" );
 	startButton.NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/Frame.png" );
+	temp = IMG_Load( ASSET_FOLDER "Frame.png" );
 	frameTexture = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/Titel.png" );
+	temp = IMG_Load( ASSET_FOLDER "Titel.png" );
 	titleTexture = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "Background.png" );
+	temp = IMG_Load( ASSET_FOLDER "Background.png" );
 	backgroundTexture = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/HostGame(Selected).png" );
+	temp = IMG_Load( ASSET_FOLDER "HostGame(Selected).png" );
 	tabOrder[0].Selected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/HostGame(Unselected).png" );
+	temp = IMG_Load( ASSET_FOLDER "HostGame(Unselected).png" );
 	tabOrder[0].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/JoinGame(Selected).png" );
+	temp = IMG_Load( ASSET_FOLDER "JoinGame(Selected).png" );
 	tabOrder[1].Selected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/JoinGame(Unselected).png" );
+	temp = IMG_Load( ASSET_FOLDER "JoinGame(Unselected).png" );
 	tabOrder[1].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/Options(Selected).png" );
+	temp = IMG_Load( ASSET_FOLDER "Options(Selected).png" );
 	tabOrder[2].Selected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/Options(Unselected).png" );
+	temp = IMG_Load( ASSET_FOLDER "Options(Unselected).png" );
 	tabOrder[2].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/Exit(Selected).png" );
+	temp = IMG_Load( ASSET_FOLDER "Exit(Selected).png" );
 	tabOrder[3].Selected = SDL_CreateTextureFromSurface( renderer, temp );
-	temp = IMG_Load( "ButtonImages/Exit(Unselected).png" );
+	temp = IMG_Load( ASSET_FOLDER "Exit(Unselected).png" );
 	tabOrder[3].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 	DebugPrintF( "Loaded all menu images." );
 	DebugAssert( startButton.Selected && startButton.NotSelected && frameTexture && titleTexture && backgroundTexture );
