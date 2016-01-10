@@ -62,6 +62,7 @@ int InitializeProgram( int argc, char *argv[] ) {
 	ReadArguments( argc, argv );
 
 	InitializeGraphics();
+	InitializePhysics();
 	
 	// TODO: Remove this hello message and print it in debug.
 	DebugPrintF( "Successfully started multipong." );

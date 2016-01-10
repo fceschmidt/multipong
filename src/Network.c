@@ -4,8 +4,12 @@
 #include <string.h>
 #include <stdio.h>
 
+// DEFINITIONS
+
 #define ERROR_TCP_SOCKET_CREATION_FAILED -1
 #define PLAYER_NAME "fabian"
+
+// TYPES
 
 /*
 ==========================================================
@@ -27,6 +31,15 @@ struct NetworkClientInfo {
 ==========================================================
 
 A list of valid packet IDs with their explanations.
+A packet on the active socket looks like this:
+	Name	Length	Description
+	PID		4		The type of packet
+	Len		4		The length of the whole packet in bytes
+	Args	Len-8	The arguments, depending on the packet
+					type.
+A packet on the data socket only contains either a serialized
+GameState (when sent by the server) or a serialized paddle
+position float (when sent by a client).
 
 ==========================================================
 */
@@ -35,56 +48,54 @@ enum PacketId {
 	PID_JOIN,		// New client has joined
 	PID_YOUR_ID,	// Tells a new client their ID
 	PID_MY_NAME,	// Tells the server the client's name
-	PID_START_GAME,	// Starts the game (+udp_port)
+	PID_START_GAME,	// Starts the game (+data_port)
 	PID_BALL_HIT,	// Registers a ball hit (+player_id)
 	PID_SCORE		// New score (+player_id+score)
 };
 
-// A boolean value which is 1 if this component is a server and 0 if it is a client.
-static int isServer = 0;
-// A boolean value which indicates whether the component is currently connected.
-static int isConnected = 0;
-// A boolean value indicating initialization state.
-static int isInitialized = 0;
+// VARIABLES
 
-// A variable for the current socket.
-static TCPsocket 		activeSocket = NULL;
-static SDLNet_SocketSet	activeSocketSet = NULL;
-static TCPsocket 		dataSocket = NULL;
-static SDLNet_SocketSet dataSocketSet = NULL;
+static int 						isServer = 0;			// A boolean value which is 1 if this component is a server and 0 if it is a client.
+static int 						isConnected = 0;		// A boolean value which indicates whether the component is currently connected.
+static int 						isInitialized = 0;		// A boolean value indicating initialization state.
 
-// Helpers for Connect
-static int ConnectLocalServer( TCPsocket *socket, uint16_t localPort );
-static int ConnectRemoteServer( TCPsocket *socket, SDLNet_SocketSet *socketSet, const char *remoteAddress, uint16_t remotePort );
-static int ConnectRemoteServerIp( TCPsocket *socket, SDLNet_SocketSet *socketSet, IPaddress *remoteAddress );
-static int NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, int maxlen );
+static TCPsocket 				activeSocket = NULL;	// The current socket for state & meta information
+static SDLNet_SocketSet			activeSocketSet = NULL;	// The associated socket set for asio
+static TCPsocket 				dataSocket = NULL;		// The current socket for exchange of in-game information
+static SDLNet_SocketSet 		dataSocketSet = NULL;	// The associated socket set for asio
 
-static int BroadcastPacketToClients( const void *data, int length );
+static struct NetworkClientInfo clients[6];				// 6 players maximum, eh?!
+static int						numClients = 0;			// The amount of filled in elements of the clients array
+static int						thisClient = -1;		// The index of this client in the clients array
 
-static int AddPlayer( struct NetworkClientInfo client );
-static void RemovePlayer( int playerId );
+// FUNCTIONS
 
-// Functions for lobby state
-static int ProcessLobbyServer( void );
-static void ServerHandleClientQuit( int playerId );
-static void ServerHandleClientMyName( int playerId, char *name );
-static void IssueAllJoins( TCPsocket socket );
+static int	ConnectLocalServer( TCPsocket *socket, uint16_t localPort );
+static int	ConnectRemoteServer( TCPsocket *socket, SDLNet_SocketSet *socketSet, const char *remoteAddress, uint16_t remotePort );
+static int	ConnectRemoteServerIp( TCPsocket *socket, SDLNet_SocketSet *socketSet, IPaddress *remoteAddress );
+static int	NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, int maxlen );
 
-// Functions for client in lobby state
-static int ProcessLobbyClient( void );
-static void ClientHandleClientJoin( int playerId, char *name );
-static void ClientHandleServerYourId( int newId );
-static void ClientHandleServerStartGame();
+static int	BroadcastPacketToClients( const void *data, int length );
 
-// Functions for ingame state
-static int ProcessInGameServer( struct GameState *state );
+static int	AddPlayer( struct NetworkClientInfo client );
+static void	RemovePlayer( int playerId );
 
-// Functions for client in ingame state
-static int ProcessInGameClient( struct GameState *state );
+static int	ProcessLobbyServer( void );
+static void	ServerHandleClientQuit( int playerId );
+static void	ServerHandleClientMyName( int playerId, char *name );
+static void	IssueAllJoins( TCPsocket socket );
 
-static struct NetworkClientInfo clients[6];	// 6 players maximum, eh?!
-static int						numClients = 0;
-static int						thisClient = -1;
+static int	ProcessLobbyClient( void );
+static void	ClientHandleClientJoin( int playerId, char *name );
+static void	ClientHandleServerYourId( int newId );
+static void	ClientHandleServerStartGame();
+
+static int	ProcessInGameServer( struct GameState *state );
+static int	ProcessInGameClient( struct GameState *state );
+
+// These two functions are accessed by the physics component... dont' make them static!
+int			IsServer( void );
+int			ThisClient( void );
 
 /*
 ====================
@@ -727,4 +738,26 @@ static int ProcessInGameServer( struct GameState *state ) {
 	// TODO: Broadcast hits and score lists (activeSocket)
 
 	return 0;
+}
+
+/*
+====================
+IsServer
+
+Determines whether the component is connected as a server.
+====================
+*/
+int IsServer( void ) {
+	return isServer;
+}
+
+/*
+====================
+ThisClient
+
+Returns the index of this client in the GameState player array.
+====================
+*/
+int ThisClient( void ) {
+	return thisClient;
 }

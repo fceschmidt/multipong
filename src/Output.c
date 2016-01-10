@@ -2,9 +2,11 @@
 #include "Debug/Debug.h"
 #include "Output.h"
 
-SDL_Window *	sdlWindow = NULL;
-SDL_Renderer *	sdlRenderer = NULL;
+// Variables
+static SDL_Window *		sdlWindow = NULL;
+static SDL_Renderer *	sdlRenderer = NULL;
 
+// Functions
 SDL_Window *GetSdlWindow( void );
 SDL_Renderer *GetSdlRenderer( void );
 
