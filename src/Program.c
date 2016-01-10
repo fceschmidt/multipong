@@ -1,4 +1,5 @@
 #include "Program.h"
+#include "Physics.h"
 #include "Network.h"
 #include "Output.h"
 #include "Debug/Debug.h"
@@ -61,6 +62,7 @@ int InitializeProgram( int argc, char *argv[] ) {
 	// TODO: Read command line arguments.
 	ReadArguments( argc, argv );
 
+	InitializeNetwork();
 	InitializeGraphics();
 	InitializePhysics();
 	
@@ -154,7 +156,7 @@ int ArgumentServer( void ) {
 	Connect( 1, NULL, NETWORK_STANDARD_SERVER_PORT );
 	time_t start = time( NULL );
 	time_t end = start + 10;
-	while( time( NULL ) < end ) {
+	while( /*time( NULL ) < end*/ 1 ) {
 		ProcessLobby();
 	}
 	DebugPrintF( "Start" );

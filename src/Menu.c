@@ -32,7 +32,7 @@ static SDL_Texture *backgroundTexture;
 static SDL_Texture *titleTexture;
 static SDL_Texture *frameTexture;
 static Button_t 	startButton;
-static char * 		username;
+static char * 		username = "multipong\0";
 
 static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
 
@@ -53,6 +53,8 @@ static void Options( void );
 
 extern SDL_Window *GetSdlWindow( void );
 extern SDL_Renderer *GetSdlRenderer( void );
+
+void GetUserName( char* Name );
 
 /*
 ==========================================================
@@ -101,6 +103,8 @@ static void TextInput( char *description, char *text, SDL_Renderer *renderer, SD
 		SDL_DestroyTexture( message );
 		SDL_FreeSurface( surfaceMessage );
 	}
+
+	strcpy( username, array + strlen( description ));;
 	DebugPrintF( "Text input has finished." );
 }
 
@@ -149,11 +153,9 @@ static int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState
 			switch ( event.key.keysym.sym ){
 				case SDLK_UP:
 					GoUp( marked );
-					printf( "%d", *marked );
 					break;
 				case SDLK_DOWN:
 					GoDown( marked );
-					printf( "%d", *marked );
 					break;
 				case SDLK_RETURN:
 					switch ( *marked ){
@@ -162,6 +164,7 @@ static int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState
 							 HostGame();
 							break;
 						case 1:
+							*menuState = 3;
 							JoinGame();
 							break;
 						case 2:
@@ -188,7 +191,10 @@ static int EventCheckLobby (Button_t *tabOrder , int *marked , int *menuState ) 
 						*menuState = 1;
 						break;
 					case SDLK_RETURN:
-						printf("StartGame");
+						// Filter menu state client lobby
+						if( !( *menuState == 2 ) ) {
+							break;
+						}
 						break;
 					default:
 						break;
@@ -205,6 +211,9 @@ static int EventCheck( Button_t *tabOrder , int *marked , int *menuState ) {
 			break;
 		case 2:
 			return EventCheckLobby(tabOrder,marked,menuState);
+			break;
+		case 3:
+			return EventCheckLobby( tabOrder, marked, menuState );
 			break;
 	}
 	return 0;
@@ -246,10 +255,12 @@ static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *rendere
 	SDL_Rect backgroundRect;
 	SDL_GetWindowSize( sdlWindow, &w, &h );
 
-	startRect.w = 0.2 *h;
-	startRect.h = 0.2 *h;
-	startRect.x = w - startRect.w -30;
-	startRect.y = h - startRect.w -30;
+	if( *menuState == 2 ) {
+		startRect.w = 0.2 *h;
+		startRect.h = 0.2 *h;
+		startRect.x = w - startRect.w -30;
+		startRect.y = h - startRect.w -30;
+	}
 
 	frameRect.h = h;
 	frameRect.w = w/2;
@@ -267,7 +278,7 @@ static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *rendere
 		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, playerNames[i], white );
 		SDL_Texture* Message = SDL_CreateTextureFromSurface( renderer, surfaceMessage );
 
-		printf( "%s :: %d \n", playerNames[i], n );
+		//printf( "%s :: %d \n", playerNames[i], n );
 		SDL_Rect Player_rect;
 		Player_rect.w = frameRect.w /2;
 		Player_rect.h = frameRect.h * 0.05;
@@ -278,7 +289,9 @@ static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *rendere
 		SDL_FreeSurface( surfaceMessage );
 	}
 	SDL_RenderCopy( renderer, frameTexture, NULL, &frameRect );
-	SDL_RenderCopy( renderer, startButton.Selected, NULL, &startRect );
+	if( *menuState == 2 ) {
+		SDL_RenderCopy( renderer, startButton.Selected, NULL, &startRect );
+	}
 	SDL_RenderPresent( renderer );
 	return 0;
 }
@@ -325,6 +338,7 @@ static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL
 			return RenderMainMenu(tabOrder,marked,renderer,sdlWindow,menuState);
 			break;
 		case 2:
+		case 3:
 			return RenderLobby(tabOrder,marked,renderer,sdlWindow,menuState);
 			break;
 	}

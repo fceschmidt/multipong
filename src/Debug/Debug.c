@@ -8,9 +8,11 @@
 static FILE *fp;
 
 int InitializeDebug() {
-	fp = fopen("Debug.log", "w");
+	fp = fopen("Debug.log", "a");
 	if( fp ) {
-			fprintf( fp, "\n\n====================\nDebugger initialized.\n====================\n" );
+		time_t t;
+		time( &t );
+		fprintf( fp, "\n\n====================\nDebugger initialized.\n%s====================\n", ctime( &t ) );
 	}
 	return fp != NULL;
 }

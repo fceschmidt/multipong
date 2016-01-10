@@ -8,6 +8,7 @@
 
 #define ERROR_TCP_SOCKET_CREATION_FAILED -1
 #define PLAYER_NAME "fabian"
+#define MAX_PLAYER_NAME_LENGTH 40
 
 // TYPES
 
@@ -97,6 +98,8 @@ static int	ProcessInGameClient( struct GameState *state );
 int			IsServer( void );
 int			ThisClient( void );
 
+extern void	GetUserName( char* Name );
+
 /*
 ====================
 InitializeNetwork
@@ -164,9 +167,10 @@ int Connect( int server, const char *remoteAddress, uint16_t port ) {
 	isServer = server;
 	// Branch for server/client.
 	if( server ) {
-		if( ConnectLocalServer( &activeSocket, port ) ) {
+		if( !ConnectLocalServer( &activeSocket, port ) ) {
 			struct NetworkClientInfo clientInfo;
-			clientInfo.alias = PLAYER_NAME;
+			clientInfo.alias = malloc( MAX_PLAYER_NAME_LENGTH );
+			GetUserName( clientInfo.alias );
 			clientInfo.socket = NULL;
 			clientInfo.socketSet = NULL;
 			clientInfo.dataSocket = NULL;
@@ -524,6 +528,7 @@ static int ProcessLobbyClient( void ) {
 					stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 12;
 					alias = malloc( stringLength + 1 );
 					strncpy( alias, &bytes[bReadPosition + 12], stringLength );
+					alias[stringLength] = '\0';
 					DebugPrintF( "Client #%d joined, his name is %s.", playerId, alias );
 					ClientHandleClientJoin( playerId, alias );
 					break;
@@ -575,11 +580,13 @@ Handles when a server tells this client its ID.
 static void ClientHandleServerYourId( int newId ) {
 	thisClient = newId;
 	char *packet;
-	packet = malloc( 8 + strlen( PLAYER_NAME ) );
-	SDLNet_Write32( ( int )PID_MY_NAME, 		&packet[0] );
-	SDLNet_Write32( 8 + strlen( PLAYER_NAME ), 	&packet[4] );
-	strncpy( packet + 8, PLAYER_NAME, strlen( PLAYER_NAME ) );
-	SDLNet_TCP_Send( activeSocket, packet, 8 + strlen( PLAYER_NAME ) );
+	char *alias = malloc( MAX_PLAYER_NAME_LENGTH );
+	GetUserName( alias );
+	packet = malloc( 8 + strlen( alias ) );
+	SDLNet_Write32( ( int )PID_MY_NAME, 	&packet[0] );
+	SDLNet_Write32( 8 + strlen( alias ), 	&packet[4] );
+	strncpy( packet + 8, alias, strlen( alias ) );
+	SDLNet_TCP_Send( activeSocket, packet, 8 + strlen( alias ) );
 	DebugPrintF( "I gave the server my name." );
 }
 
@@ -610,6 +617,12 @@ static int AddPlayer( struct NetworkClientInfo client ) {
 	int newIndex = numClients;
 	if( numClients == 6 ) {
 		return -1;
+	}
+
+	DebugPrintF( "Adding Player %s.", client.alias );
+
+	if( numClients == -1 ) {
+		numClients = 0;
 	}
 	clients[numClients++] = client;
 	return newIndex;

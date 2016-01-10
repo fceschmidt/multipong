@@ -26,7 +26,7 @@ struct Circle2D {
 
 static registerHitHandler_t	rhHandler = NULL;
 static int					lastHit = -1;
-static char *				sdlKeyArray = NULL;
+static const unsigned char *sdlKeyArray = NULL;
 static int					clockwiseKey = SDLK_LEFT;
 static int					counterclockwiseKey = SDLK_RIGHT;
 static float				userPaddleSpeed = 0.0f;
@@ -95,7 +95,7 @@ static int GetPointSegment( struct Point2D point, int numPlayers ) {
 	 * and go 360/n degrees to the right and see in which segment the angle is. */
 	float 			angle;
 	struct Point2D	origin = { .x = 0.0f, .y = 0.0f };
-	struct Vector2D playerZeroStartVector = DeltaVector2D( origin, GetPlayerLine( 0, numPlayers ) );
+	struct Vector2D playerZeroStartVector = DeltaVector2D( origin, GetPlayerLine( 0, numPlayers ).point );
 	struct Vector2D	deltaVector = DeltaVector2D( origin, point );
 
 	// Case where the point is the origin: player 0
@@ -310,18 +310,15 @@ Writes changed values to the state variable.
 ====================
 */
 int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
-	assert( deltaSeconds > 0.0f && state );
+	DebugAssert( deltaSeconds > 0.0f && state );
+
 	if( deltaSeconds <= 0.0f || !state ) {
 		return -1;
 	}
 
-	HandleInput();	// Checks arrow keys etc.
-
-	// Check if we're the server: Gotta do a lot more work in that case...
-	int server = IsServer();
-
-
-
+	HandleInput( state, deltaSeconds );	// Checks arrow keys and applies paddle speed (not paddle displacement).
+	
+	// Displace the paddle.
 }
 
 /*
@@ -332,7 +329,7 @@ Performs some initialization tasks for the physics component. Should be called a
 ====================
 */
 int InitializePhysics( void ) {
-	sdlKeyArray = SDL_GetKeyState( NULL );
+	sdlKeyArray = SDL_GetKeyboardState( NULL );
 }
 
 /*
@@ -346,8 +343,18 @@ static void	HandleInput( struct GameState *state, float deltaSeconds ) {
 	// Check for keys.
 	SDL_PumpEvents();
 
-	
 	if( sdlKeyArray[clockwiseKey] ) {
-		
+		userPaddleSpeed += PADDLE_ACCELERATION * deltaSeconds;
+		if( userPaddleSpeed > PADDLE_MAX_SPEED ) {
+			userPaddleSpeed = PADDLE_MAX_SPEED;
+		}
+	}
+	
+	if( sdlKeyArray[counterclockwiseKey] ) {
+		userPaddleSpeed -= PADDLE_ACCELERATION * deltaSeconds;
+		if( userPaddleSpeed < -PADDLE_MAX_SPEED ) {
+			userPaddleSpeed = -PADDLE_MAX_SPEED;
+		}
 	}
 }
+
