@@ -329,7 +329,9 @@ static int NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, 
 	int bPosition = 0;
 	while( SDLNet_CheckSockets( set, 0 ) > 0 && bPosition < maxlen ) {
 		if( SDLNet_SocketReady( socket ) ) {
-			SDLNet_TCP_Recv( socket, &data[bPosition++], 1 );
+			if( SDLNet_TCP_Recv( socket, &data[bPosition++], 1 ) == -1 ) {
+				return -1;
+			}
 		}
 	}
 	return bPosition;
