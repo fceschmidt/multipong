@@ -12,6 +12,8 @@ static void DestroyResources( void );
 static int ReadArguments( int argc, char *argv[] );
 
 static int ArgumentHelp( void );
+static int ArgumentFullscreen( void );
+static int ArgumentWindowed( void );
 // TODO: REMOVE!
 static int ArgumentServer( void );
 static int ArgumentClient( void );
@@ -42,8 +44,13 @@ struct ArgumentNameFunctionCouple {
 static struct ArgumentNameFunctionCouple argumentNameFunctionMap[] = {
 	{ .name = "--help", .function = &ArgumentHelp },
 	{ .name = "--server", .function = &ArgumentServer },
-	{ .name = "--client", .function = &ArgumentClient }
+	{ .name = "--client", .function = &ArgumentClient },
+	{ .name = "--fullscreen", .function = &ArgumentFullscreen },
+	{ .name = "--windowed", .function = &ArgumentWindowed }
 };
+
+// Imported from Output.
+extern int outputFullscreen;
 
 /*
 ====================
@@ -58,6 +65,9 @@ int InitializeProgram( int argc, char *argv[] ) {
 
 	// Initialize debug component.
 	InitializeDebug();
+
+	// Seed the randomizer.
+	srand( time ( NULL ) );
 
 	// TODO: Read command line arguments.
 	ReadArguments( argc, argv );
@@ -136,8 +146,32 @@ Implements behaviour when the program is started with --help.
 Prints a help message.
 ====================
 */
-int ArgumentHelp( void ) {
+static int ArgumentHelp( void ) {
 	printf( "Welcome to multipong. There is no help available at the moment, sorry!\n" );
+	return 0;
+}
+
+/*
+====================
+ArgumentFullscreen
+
+Sets the fullscreen execution flag.
+====================
+*/
+static int ArgumentFullscreen( void ) {
+	outputFullscreen = 1;
+	return 0;
+}
+
+/*
+====================
+ArgumentWindowed
+
+Unsets the fullscreen execution flag.
+====================
+*/
+static int ArgumentWindowed( void ) {
+	outputFullscreen = 0;
 	return 0;
 }
 
