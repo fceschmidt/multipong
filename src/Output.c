@@ -60,6 +60,7 @@ Renders the game state using information from the state variable.
 */
 int DisplayGameState( const struct GameState *state ) {
 	// TODO: Code for rendering!
+	DebugPrintF( "DisplayGameState was called!" );
 	/* This needs to do the following:
 	 * Use the predefined sdlWindow and sdlRenderer!
 	 * The GameState should not be changed, therefore it is const.
@@ -93,6 +94,7 @@ int DisplayGameState( const struct GameState *state ) {
 	 * 6. Draw a circle to represent the ball. Also translate the state->ball.position
 	 *		before you actually draw this.
 	 * 7. Present and be done!
+	 * P.S.: You can test this function for ten seconds by running the program, going into Host game mode and pressing enter in the lobby!
 	*/
 	return 0;
 }

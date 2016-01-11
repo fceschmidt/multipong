@@ -1,6 +1,7 @@
 #include "Program.h"
 #include "Menu.h"
 #include "Main.h"
+#include "Game.h"
 
 /*
 ====================
@@ -27,7 +28,7 @@ int main( int argc, char *argv[] ) {
 				break;
 			case PS_GAME:
 				// TODO: Go to game loop...
-				mode = PS_MENU;
+				mode = RunGame();
 				break;
 			default:
 				break;

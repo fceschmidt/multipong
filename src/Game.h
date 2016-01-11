@@ -63,4 +63,6 @@ struct GameState {
 	struct Ball		ball;
 };
 
+int	RunGame( void );
+
 #endif
