@@ -258,13 +258,11 @@ static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *rendere
 	SDL_Rect backgroundRect;
 	SDL_GetWindowSize( sdlWindow, &w, &h );
 
-	if( *menuState == 2 ) {
-		startRect.w = 0.2 *h;
-		startRect.h = 0.2 *h;
-		startRect.x = w - startRect.w -30;
-		startRect.y = h - startRect.w -30;
-	}
-
+	startRect.w = 0.2 *h;
+	startRect.h = 0.2 *h;
+	startRect.x = w - startRect.w -30;
+	startRect.y = h - startRect.w -30;
+	
 	frameRect.h = h;
 	frameRect.w = w/2;
 	frameRect.x = w/2 - frameRect.w;
@@ -294,6 +292,8 @@ static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *rendere
 	SDL_RenderCopy( renderer, frameTexture, NULL, &frameRect );
 	if( *menuState == 2 ) {
 		SDL_RenderCopy( renderer, startButton.Selected, NULL, &startRect );
+	} else {
+		SDL_RenderCopy( renderer , startButton.NotSelected , NULL , &startRect );
 	}
 	SDL_RenderPresent( renderer );
 	return 0;

@@ -8,7 +8,10 @@
 #define PADDLE_SIZE 0.1f
 #define PADDLE_ACCELERATION 1.0f	// DISTANCE PER SECOND SQUARED
 #define PADDLE_MAX_SPEED 0.5f		// DISTANCE PER SECOND
+#define PADDLE_MAX_POS ( 1.0f - PADDLE_SIZE )
+#define PADDLE_MIN_POS ( 0.0f )
 #define DEFAULT_BALL_SPEED 1.0f		// DISTANCE PER SECOND
+#define DEFAULT_BALL_RADIUS 0.02f
 
 /*
 ==========================================================
@@ -316,9 +319,31 @@ int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
 		return -1;
 	}
 
+	// CODE FOR THE USER INPUT
 	HandleInput( state, deltaSeconds );	// Checks arrow keys and applies paddle speed (not paddle displacement).
+	float imminentDisplacement = userPaddleSpeed * deltaSeconds;
+	float *currentPosition = &state->players[ThisClient()].position;
+	*currentPosition += imminentDisplacement;
+	// Check for borders!
+	if( *currentPosition > PADDLE_MAX_POS ) {
+		*currentPosition = PADDLE_MAX_POS;
+		userPaddleSpeed = 0.0f;
+	}
+	if( *currentPosition < PADDLE_MIN_POS ) {
+		*currentPosition = PADDLE_MIN_POS;
+		userPaddleSpeed = 0.0f;
+	}
+
+	// Code for the ball and collisions
+	struct Ball *	ball = &state->ball;
+	int 			segment;
+	struct Circle2D	ballCircle;
+	struct Point2D 	newPosition = AddVectorToPoint2D( ball->position, ScaleVector2D( ball->direction, deltaSeconds ) );
+	ballCircle.point = newPosition;
+	ballCircle.radius = DEFAULT_BALL_RADIUS;
+
+	segment = GetPointSegment( newPosition, state->numPlayers );
 	
-	// Displace the paddle.
 }
 
 /*
