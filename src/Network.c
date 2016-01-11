@@ -82,11 +82,15 @@ static int	AddPlayer( struct NetworkClientInfo client );
 static void	RemovePlayer( int playerId );
 
 static int	ProcessLobbyServer( void );
+static int	ServerAcceptClients( void );
+static int	ProcessLobbyServerIncomingPackets( int client, char *bytes, int numBytes );
 static void	ServerHandleClientQuit( int playerId );
 static void	ServerHandleClientMyName( int playerId, char *name );
 static void	IssueAllJoins( TCPsocket socket );
+static int	AcceptAllDataClients( void );
 
 static int	ProcessLobbyClient( void );
+static int	ProcessLobbyClientIncomingPackets( char *bytes, int numBytes );
 static void	ClientHandleClientJoin( int playerId, char *name );
 static void	ClientHandleServerYourId( int newId );
 static void	ClientHandleServerStartGame();
@@ -226,7 +230,7 @@ static int ConnectRemoteServer( TCPsocket *socket, SDLNet_SocketSet *socketSet, 
 	int			result;
 
 	result = SDLNet_ResolveHost( &ip, remoteAddress, remotePort );
-	DebugAssert( result );
+	DebugAssert( !result );
 	if( result ) {
 		return result;
 	}
@@ -339,13 +343,12 @@ static int NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, 
 
 /*
 ====================
-ProcessLobbyServer
+ServerAcceptClients
 
-Accepts incoming connections, receives information packets from clients and
-informs all clients about the new client.
+Accepts new clients on the activeSocket.
 ====================
 */
-static int ProcessLobbyServer( void ) {
+static int ServerAcceptClients( void ) {
 	// Accept new clients!
 	TCPsocket newClient = NULL;
 	newClient = SDLNet_TCP_Accept( activeSocket );
@@ -368,15 +371,63 @@ static int ProcessLobbyServer( void ) {
 		SDLNet_Write32( newId,				&packet[2] );
 		SDLNet_TCP_Send( clients[newId].socket, packet, sizeof( packet ) );
 	}
+	return 0;
+}
 
-	// Process other clients' packets!
-	int client;
-	int numBytes;
-	char bytes[1024];
+/*
+====================
+ProcessLobbyServerIncomingPackets
+
+Given a client ID and a packet buffer, reads all the packets and takes action according to their contents.
+====================
+*/
+static int ProcessLobbyServerIncomingPackets( int client, char *bytes, int numBytes ) {
 	int bReadPosition = 0;
-	int endOfStream;
+	int endOfStream = 0;
 	int stringLength;
 	char *name;
+
+	while( !endOfStream ) {
+		switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
+			case PID_QUIT:
+				// Handle the quit
+				ServerHandleClientQuit( client );
+				break;
+			case PID_MY_NAME:
+				// Determine length of name and call handler with the length.
+				stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 8;
+				name = malloc( stringLength + 1 );
+				strncpy( name, &bytes[bReadPosition + 8], stringLength );
+				name[stringLength] = '\0';
+				DebugPrintF( "Client #%d is now called %s.", client, name );
+				ServerHandleClientMyName( client, name );
+				//return 10;
+				break;
+		}
+		bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
+		if( bReadPosition >= numBytes ) {
+			endOfStream = 1;
+		}
+	}
+
+	return 0;
+}
+
+/*
+====================
+ProcessLobbyServer
+
+Accepts incoming connections, receives information packets from clients and
+informs all clients about the new client.
+====================
+*/
+static int ProcessLobbyServer( void ) {
+	ServerAcceptClients();
+
+	// Process other clients' packets!
+	int numBytes;
+	char bytes[1024];
+	int client;
 
 	// Go through the clients
 	for( client = 0; client < numClients; client++ ) {
@@ -384,38 +435,17 @@ static int ProcessLobbyServer( void ) {
 		if( !clients[client].socket ) {
 			continue;
 		}
-		// Reset endofstream and receive bytes from this client
-		endOfStream = 0;
-		numBytes = NonBlockingRecv( clients[client].socket, clients[client].socketSet, bytes, sizeof( bytes ) );
-		// while there is something to read from and the stream hasn't ended yet
-		while( numBytes > 0 ) {
-			DebugPrintF( "Received %d bytes.", numBytes );
-			while( !endOfStream ) {
-				switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
-					case PID_QUIT:
-						// Handle the quit
-						ServerHandleClientQuit( client );
-						break;
-					case PID_MY_NAME:
-						// Determine length of name and call handler with the length.
-						stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 8;
-						name = malloc( stringLength + 1 );
-						strncpy( name, &bytes[bReadPosition + 8], stringLength );
-						name[stringLength] = '\0';
-						DebugPrintF( "Client #%d is now called %s.", client, name );
-						ServerHandleClientMyName( client, name );
-						//return 10;
-						break;
-				}
-				bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
-				if( bReadPosition >= numBytes ) {
-					endOfStream = 1;
-				}
-			}
+		// while there is something to read from, process the packets.
+		while( 1 ) {
 			numBytes = NonBlockingRecv( clients[client].socket, clients[client].socketSet, bytes, sizeof( bytes ) );
-			bReadPosition = 0;
+			if( numBytes <= 0 ) {
+				break;
+			}
+			DebugPrintF( "Received %d bytes.", numBytes );
+			ProcessLobbyServerIncomingPackets( client, bytes, numBytes );
 		}
 	}
+
 	return 0;
 }
 
@@ -504,6 +534,55 @@ static int BroadcastPacketToClients( const void *data, int length ) {
 
 /*
 ====================
+ProcessLobbyClientIncomingPackets
+
+Given a packet buffer, reads all packets and takes action according to their contents.
+====================
+*/
+static int ProcessLobbyClientIncomingPackets( char *bytes, int numBytes ) {
+	int 	playerId;
+	int		stringLength;
+	char *	alias;
+	int		newId;
+	int		port;
+
+	int		bReadPosition = 0;
+	int		endOfStream = 0;
+	
+	while( !endOfStream ) {
+		switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
+			case PID_JOIN:
+				playerId = SDLNet_Read32( &bytes[bReadPosition + 8] );
+				stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 12;
+				alias = malloc( stringLength + 1 );
+				strncpy( alias, &bytes[bReadPosition + 12], stringLength );
+				alias[stringLength] = '\0';
+				DebugPrintF( "Client #%d joined, his name is %s.", playerId, alias );
+				ClientHandleClientJoin( playerId, alias );
+				break;
+			case PID_YOUR_ID:
+				newId = SDLNet_Read32( &bytes[bReadPosition + 8] );
+				DebugPrintF( "I am now client #%d.", newId );
+				ClientHandleServerYourId( newId );
+				break;
+			case PID_START_GAME:
+				port = SDLNet_Read32( &bytes[bReadPosition + 8] );
+				DebugPrintF( "The game starts now on port %d.", port );
+				ClientHandleServerStartGame( port );
+				return GAME_START;
+				break;
+		}
+		bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
+		if( bReadPosition >= numBytes ) {
+			endOfStream = 1;
+		}
+	}
+
+	return 0;
+}
+
+/*
+====================
 ProcessLobbyClient
 
 Answers server packets with PID_MY_NAME, PID_QUIT and accepts packets like
@@ -512,47 +591,14 @@ PID_JOIN, PID_YOUR_ID and PID_START_GAME
 */
 static int ProcessLobbyClient( void ) {
 	char 	bytes[1024];
-	int		numBytes = NonBlockingRecv( activeSocket, activeSocketSet, bytes, sizeof( bytes ) );
-	int		endOfStream = 0;
-	int		bReadPosition = 0;
-
-	int 	playerId;
-	int		stringLength;
-	char *	alias;
-	int		newId;
-	int		port;
-
-	while( numBytes > 0 ) {
-		while( !endOfStream ) {
-			switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
-				case PID_JOIN:
-					playerId = SDLNet_Read32( &bytes[bReadPosition + 8] );
-					stringLength = SDLNet_Read32( &bytes[bReadPosition + 4] ) - 12;
-					alias = malloc( stringLength + 1 );
-					strncpy( alias, &bytes[bReadPosition + 12], stringLength );
-					alias[stringLength] = '\0';
-					DebugPrintF( "Client #%d joined, his name is %s.", playerId, alias );
-					ClientHandleClientJoin( playerId, alias );
-					break;
-				case PID_YOUR_ID:
-					newId = SDLNet_Read32( &bytes[bReadPosition + 8] );
-					DebugPrintF( "I am now client #%d.", newId );
-					ClientHandleServerYourId( newId );
-					break;
-				case PID_START_GAME:
-					port = SDLNet_Read32( &bytes[bReadPosition + 8] );
-					DebugPrintF( "The game starts now on port %d.", port );
-					ClientHandleServerStartGame( port );
-					return GAME_START;
-					break;
-			}
-			bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
-			if( bReadPosition >= numBytes ) {
-				endOfStream = 1;
-			}
-		}
+	int		numBytes;
+	
+	while( 1 ) {
 		numBytes = NonBlockingRecv( activeSocket, activeSocketSet, bytes, sizeof( bytes ) );
-		bReadPosition = 0;
+		if( numBytes <= 0 ) {
+			break;
+		}
+		ProcessLobbyClientIncomingPackets( bytes, numBytes );
 	}
 
 	return 0;
@@ -667,28 +713,17 @@ int GetPlayerList( playerInfo_t *players, int *numPlayers ) {
 
 /*
 ====================
-NetworkStartGame
+AcceptAllDataClients
 
-For use by the server only, broadcasts the packet that starts the game.
+Accepts all clients for the data port now. Waits until we have all clients.
 ====================
 */
-int NetworkStartGame( uint16_t udpPort ) {
-	// Prepare data port
-	ConnectLocalServer( &dataSocket, NETWORK_STANDARD_DATA_PORT );
-	
-	// Broadcast connection info
-	char packet[12];
-	SDLNet_Write32( ( int )PID_START_GAME,	&packet[0] );
-	SDLNet_Write32( sizeof( packet ),		&packet[4] );
-	SDLNet_Write32( udpPort,				&packet[8] );
-	BroadcastPacketToClients( packet, 12 );
-
-	// Accept all clients for the data port now.
-	// Wait until we have all clients.
+static int AcceptAllDataClients( void ) {
 	int 		dataClients = 1;
 	int 		i;
 	IPaddress *	info;
 	IPaddress *	newInfo;
+
 	while( dataClients < numClients ) {
 		TCPsocket newClient = NULL;
 		newClient = SDLNet_TCP_Accept( dataSocket );
@@ -711,6 +746,29 @@ int NetworkStartGame( uint16_t udpPort ) {
 			}
 		}
 	}
+
+	return 0;
+}
+
+/*
+====================
+NetworkStartGame
+
+For use by the server only, broadcasts the packet that starts the game.
+====================
+*/
+int NetworkStartGame( uint16_t udpPort ) {
+	// Prepare data socket
+	ConnectLocalServer( &dataSocket, NETWORK_STANDARD_DATA_PORT );
+	
+	// Broadcast connection info
+	char packet[12];
+	SDLNet_Write32( ( int )PID_START_GAME,	&packet[0] );
+	SDLNet_Write32( sizeof( packet ),		&packet[4] );
+	SDLNet_Write32( udpPort,				&packet[8] );
+	BroadcastPacketToClients( packet, 12 );
+
+	AcceptAllDataClients();
 
 	return 0;
 }
