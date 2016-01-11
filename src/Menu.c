@@ -5,6 +5,7 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_net.h>
 #include "Network.h"
+#include "Main.h"
 #include "Debug/Debug.h"
 
 #define ASSET_FOLDER "Assets/"
@@ -109,6 +110,7 @@ static void TextInput( char *description, char *text, SDL_Renderer *renderer, SD
 }
 
 int ShowMenu( void ) {
+	enum ProgramState mode = PS_MENU;
 	DebugPrintF( "ShowMenu called." );
 	DebugAssert( !TTF_Init() );
 	username = malloc( sizeof( char ) * 30 );
@@ -121,11 +123,12 @@ int ShowMenu( void ) {
 	InitializeMenuElements( tabOrder, renderer, sdlWindow );
 	TextInput( "Username:", username, renderer, sdlWindow );
 	while( 1 ) {
-		if( Menu( sdlWindow, renderer, &marked, &menuState, tabOrder ) == 1 ) {
-			break;
+		mode = Menu( sdlWindow, renderer, &marked, &menuState, tabOrder );
+		if( mode != PS_MENU ) {
+			return mode;
 		}
 	}
-	return 1;
+	return PS_QUIT;
 }
 
 /*
@@ -135,10 +138,12 @@ renders the buttons.
 ==========================================================
 */
 static int Menu ( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , int *menuState, Button_t *tabOrder  ) {
-	if ( EventCheck( tabOrder, marked, menuState ) == 1 ) {
-		return 1;
+	enum ProgramState mode = EventCheck( tabOrder, marked, menuState );
+	if ( mode != PS_MENU ) {
+		return mode;
 	}
-	return Render( tabOrder, marked, renderer, sdlWindow, menuState );
+	Render( tabOrder, marked, renderer, sdlWindow, menuState );
+	return PS_MENU;
 }
 
 /*
@@ -171,14 +176,14 @@ static int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState
 							Options();
 							break;
 						case 3:
-							return 1;
+							return PS_QUIT;
 							break;
 					}
 					break;
 			}
 		}
 	}
-	return 0;
+	return PS_MENU;
 }
 
 static int EventCheckLobby (Button_t *tabOrder , int *marked , int *menuState ) {
@@ -195,13 +200,13 @@ static int EventCheckLobby (Button_t *tabOrder , int *marked , int *menuState ) 
 						if( !( *menuState == 2 ) ) {
 							break;
 						}
-						break;
+						return PS_GAME;
 					default:
 						break;
 				}
 		}
 	}
-	return 0;
+	return PS_MENU;
 }
 
 static int EventCheck( Button_t *tabOrder , int *marked , int *menuState ) {
@@ -210,13 +215,11 @@ static int EventCheck( Button_t *tabOrder , int *marked , int *menuState ) {
 			return EventCheckMainMenu(tabOrder,marked,menuState);
 			break;
 		case 2:
+		case 3:
 			return EventCheckLobby(tabOrder,marked,menuState);
 			break;
-		case 3:
-			return EventCheckLobby( tabOrder, marked, menuState );
-			break;
 	}
-	return 0;
+	return PS_MENU;
 }
 
 
