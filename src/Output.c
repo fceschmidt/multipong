@@ -6,6 +6,7 @@
 // Variables
 static SDL_Window *		sdlWindow = NULL;
 static SDL_Renderer *	sdlRenderer = NULL;
+int						outputFullscreen = 0;
 
 // Functions
 SDL_Window *GetSdlWindow( void );
@@ -20,7 +21,7 @@ Creates the window and renderer.
 */
 int InitializeGraphics( void ) {
 	DebugAssert( !SDL_Init( SDL_INIT_VIDEO ) );
-	sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_SHOWN );
+	sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, outputFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
 	DebugAssert( sdlWindow );
 	sdlRenderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
 	DebugAssert( sdlRenderer );
