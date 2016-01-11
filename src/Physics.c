@@ -5,7 +5,6 @@
 #include "Debug/Debug.h"
 
 #define DEGREES_TO_RADIANS( x ) ( ( x ) * M_PI / 180.0f )
-#define PADDLE_SIZE 0.1f
 #define PADDLE_ACCELERATION 1.0f	// DISTANCE PER SECOND SQUARED
 #define PADDLE_MAX_SPEED 0.5f		// DISTANCE PER SECOND
 #define PADDLE_MAX_POS ( 1.0f - PADDLE_SIZE )
@@ -36,13 +35,13 @@ static float				userPaddleSpeed = 0.0f;
 
 // FUNCTIONS
 
-static struct Vector2D 	ScaleVector2D( struct Vector2D vector, float scalar );
-static struct Point2D	AddVectorToPoint2D( struct Point2D point, struct Vector2D vector );
+static struct Vector2D	AddVectors2D( struct Vector2D vector1, struct Vector2D vector2 );
 static float			VectorNorm2D( struct Vector2D vector );
 static int				GetPointSegment( struct Point2D point, int numPlayers );
 static struct Vector2D	DeltaVector2D( struct Point2D point1, struct Point2D point2 );
 static float			GetVectorAngle2D( struct Vector2D vector1, struct Vector2D vector2 );
 static float			ScalarProduct2D( struct Vector2D vector1, struct Vector2D vector2 );
+static struct Vector2D	GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement );
 static void				LineCircleCollision2D( struct Circle2D circle, struct Line2D line, int *isRight, float *projection );
 static void				HandleInput( struct GameState *state, float deltaSeconds );
 
@@ -57,7 +56,7 @@ ScaleVector2D
 Given a vector and a scalar, scales the vector by the scalar.
 ====================
 */
-static struct Vector2D ScaleVector2D( struct Vector2D vector, float scaling ) {
+struct Vector2D ScaleVector2D( struct Vector2D vector, float scaling ) {
 	vector.dx *= scaling;
 	vector.dy *= scaling;
 	return vector;
@@ -71,10 +70,23 @@ Given a 2D point and vector, adds the dx component of the vector to the point's
 x component, and the vector's dy component to the point's y component.
 ====================
 */
-static struct Point2D AddVectorToPoint2D( struct Point2D point, struct Vector2D vector ) {
+struct Point2D AddVectorToPoint2D( struct Point2D point, struct Vector2D vector ) {
 	point.x += vector.dx;
 	point.y += vector.dy;
 	return point;
+}
+
+/*
+====================
+AddVectors2D
+
+Returns the result of vector addition of its two arguments.
+====================
+*/
+static struct Vector2D AddVectors2D( struct Vector2D vector1, struct Vector2D vector2 ) {
+	vector1.dx += vector2.dx;
+	vector1.dy += vector2.dy;
+	return vector1;
 }
 
 /*
@@ -179,9 +191,8 @@ static float ScalarProduct2D( struct Vector2D vector1, struct Vector2D vector2 )
 ====================
 GetPlayerLine
 
-Returns a line element containing the clockwise start of
-the player's paddle movement range (which goes from 0 to 
-1 on the vector) to its end.
+Given the player ID (integer ranging from 0 to numPlayers - 1) and the total amount of players (ranging from 2 to 6).
+Returns a line element containing the clockwise start of the player's paddle movement range (which goes from 0 to 1 on the vector) to its end.
 ====================
 */
 struct Line2D GetPlayerLine( int player, int numPlayers ) {
@@ -307,6 +318,23 @@ static void LineCircleCollision2D( struct Circle2D circle, struct Line2D line, i
 
 /*
 ====================
+GetReflectionVector
+
+Gets a reflection vector for the object which bounces off the wall.
+TODO: Make it a bit more random.
+====================
+*/
+static struct Vector2D GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement ) {
+	struct Vector2D wallNormal;
+	wallNormal.dx = wall.dy;
+	wallNormal.dy = -wall.dx;
+	wallNormal = ScaleVector2D( wallNormal, 1.0f / VectorNorm2D( wallNormal ) );
+
+	return AddVectors2D( objectMovement, ScaleVector2D( wallNormal, -2.0f * ScalarProduct2D( objectMovement, wallNormal ) ) );
+}
+
+/*
+====================
 ProcessPhysics
 
 Writes changed values to the state variable.
@@ -339,11 +367,21 @@ int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
 	int 			segment;
 	struct Circle2D	ballCircle;
 	struct Point2D 	newPosition = AddVectorToPoint2D( ball->position, ScaleVector2D( ball->direction, deltaSeconds ) );
+	int				isRight;
+	float			projection;
 	ballCircle.point = newPosition;
 	ballCircle.radius = DEFAULT_BALL_RADIUS;
 
 	segment = GetPointSegment( newPosition, state->numPlayers );
-	
+	LineCircleCollision2D( ballCircle, GetPlayerLine( segment, state->numPlayers ), &isRight, &projection );
+	if( !isRight ) {
+		if( projection >= *currentPosition && projection <= *currentPosition + PADDLE_SIZE ) {
+			RegisterHit( segment );
+			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ), ball->direction );
+		} else {
+			// TODO: Give points and reset ball etc.
+		}
+	}
 }
 
 /*
