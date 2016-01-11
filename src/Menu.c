@@ -337,9 +337,6 @@ static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *render
 
 static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState ) {
 	int result = 0;
-	static unsigned int last = 0;
-	unsigned int frameTime;
-	char newTitle[50];
 
 	switch( *menuState ) {
 		case 1:
@@ -350,14 +347,6 @@ static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL
 			result = RenderLobby(tabOrder,marked,renderer,sdlWindow,menuState);
 			break;
 	}
-
-	frameTime = SDL_GetTicks() - last;
-	while( 1000.0f / (float)( SDL_GetTicks() - last ) > 60.0f ) {
-		SDL_Delay( 1 );
-	}
-	sprintf( newTitle, "multipong (%4.1f fps, %d%%)", 1000.0f / (float)( SDL_GetTicks() - last ), frameTime * 100 / ( SDL_GetTicks() - last ) );
-	last = SDL_GetTicks();
-	SDL_SetWindowTitle( GetSdlWindow(), newTitle );
 
 	return result;
 }
