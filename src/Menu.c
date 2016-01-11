@@ -13,21 +13,37 @@
 
 /*
 ==========================================================
+
 A struct for a button in the main menu
+
 ==========================================================
 */
 typedef struct {
-	char*    		Text;
+	char*    		text;
 	int      		x;
 	int      		y;
-	int      		Hoehe;
-	int		 		Breite;
-	int      		RValue;
-	int      		GValue;
-	int      		BValue;
-	SDL_Texture* 	NotSelected;
-	SDL_Texture* 	Selected;
-}Button_t;
+	int      		height;
+	int		 		width;
+	int      		rValue;
+	int      		gValue;
+	int      		bValue;
+	SDL_Texture* 	texNotSelected;
+	SDL_Texture* 	texSelected;
+} Button_t;
+
+/*
+==========================================================
+
+An enumeration for the states of the menu.
+
+==========================================================
+*/
+enum MenuState {
+	MS_MAIN_MENU,
+	MS_HOST_GAME,
+	MS_JOIN_GAME,
+	MS_OPTIONS
+};
 
 static SDL_Texture *backgroundTexture;
 static SDL_Texture *titleTexture;
@@ -38,14 +54,14 @@ static TTF_Font *	sans;
 
 static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
 
-static void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Window *sdlWindow );
-static int EventCheckMainMenu( Button_t *tabOrder , int *marked , int *menuState );
-static int EventCheckLobby( Button_t *tabOrder , int *marked , int *menuState );
-static int EventCheck( Button_t *tabOrder , int *marked , int *menuState );
-static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState );
-static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , int *menuState );
-static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState );
-static int Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , int *menuState, Button_t *tabOrder );
+static void TextInput( char *description, char *text );
+static int EventCheckMainMenu( int *marked, enum MenuState *menuState );
+static int EventCheckLobby( int *marked, enum MenuState *menuState );
+static int EventCheck( int *marked , enum MenuState *menuState );
+static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState );
+static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , enum MenuState *menuState );
+static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState );
+static int Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer, int *marked , enum MenuState *menuState, Button_t *tabOrder );
 static void GoDown( int *marked );
 static void GoUp( int *marked );
 
@@ -59,24 +75,27 @@ extern SDL_Renderer *GetSdlRenderer( void );
 void GetUserName( char* Name );
 
 /*
-==========================================================
-function that loops the menu. To be called in the main unit.
-==========================================================
-*/
-static void TextInput( char *description, char *text, SDL_Renderer *renderer, SDL_Window *sdlWindow ) {
-	int 		w, h, done = 0;
-	char		array[40];
-	SDL_Rect	inputRect;
-	TTF_Font *	sans = TTF_OpenFont( SANS_FONT_FILE, 256 );
-	SDL_Color 	color = { 0, 255, 0 };
+====================
+TextInput
 
-	DebugPrintF( "TextInput( %s, %s, %d, %d ) called.", description, text, renderer, sdlWindow );
-	SDL_GetWindowSize( sdlWindow, &w, &h );
-	DebugPrintF( "SDL_GetWindowSize returned %d x %d pixels.", w, h );
+Given an allocated text buffer and a description, prompts the user for text input and writes the input to the allocated text buffer using the SDL interface provided by GetSdlWindow() and GetSdlRenderer().
+====================
+*/
+static void TextInput( char *description, char *text ) {
+	int 			windowWidth, windowHeight;
+	int				done = 0;
+	char			array[40];
+	SDL_Rect		inputRect;
+	TTF_Font *		sans = TTF_OpenFont( SANS_FONT_FILE, 256 );
+	SDL_Color 		color = { 0, 255, 0 };
+	SDL_Window *	sdlWindow = GetSdlWindow();
+	SDL_Renderer *	sdlRenderer = GetSdlRenderer();
+	SDL_Event 		event;
+
+	SDL_GetWindowSize( sdlWindow, &windowWidth, &windowHeight );
 	SDL_StartTextInput();
 	DebugPrintF( "Started text input." );
 	while ( !done ) {
-		SDL_Event event;
 		if ( SDL_PollEvent( &event ) ) {
 			switch ( event.type ) {
 				case SDL_KEYDOWN:
@@ -92,37 +111,59 @@ static void TextInput( char *description, char *text, SDL_Renderer *renderer, SD
 			}
 		}
 
-		SDL_RenderClear( renderer );
+		SDL_RenderClear( sdlRenderer );
 		strcpy( array, description );
 		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, strcat( array, text ), color );
-		SDL_Texture* message = SDL_CreateTextureFromSurface( renderer, surfaceMessage );
+		SDL_Texture* message = SDL_CreateTextureFromSurface( sdlRenderer, surfaceMessage );
 		inputRect.w = 300;
 		inputRect.h = 70 ;
-		inputRect.x = w /2 - inputRect.w/2;
-		inputRect.y = h /2 - inputRect.h/2;
-		SDL_RenderCopy( renderer, message, NULL, &inputRect );
-		SDL_RenderPresent( renderer );
+		inputRect.x = windowWidth / 2 - inputRect.w / 2;
+		inputRect.y = windowHeight / 2 - inputRect.h / 2;
+		SDL_RenderCopy( sdlRenderer, message, NULL, &inputRect );
+		SDL_RenderPresent( sdlRenderer );
 		SDL_DestroyTexture( message );
 		SDL_FreeSurface( surfaceMessage );
 	}
 
-	strcpy( username, array + strlen( description ));;
-	DebugPrintF( "Text input has finished." );
+	DebugPrintF( "The user input was \"%s\".", username );
 }
 
-int ShowMenu( void ) {
-	enum ProgramState mode = PS_MENU;
-	DebugPrintF( "ShowMenu called." );
+/*
+====================
+InitializeMenu
+
+Performs initialization tasks for the menu component.
+====================
+*/
+int InitializeMenu( void ) {
+	// Initialize SDL_ttf for font output.
 	DebugAssert( !TTF_Init() );
-	username = malloc( sizeof( char ) * 30 );
+	
+	// Initialize the username variable.
+	DebugAssert( username = malloc( sizeof( char ) * 30 ) );
 	username[0] = '\0';
-	int marked = 0;
-	int menuState = 1;
+
+	return 0;
+}
+
+/*
+====================
+ShowMenu
+
+Renders the menu on the window. This call blocks until the user decides to leave the application (return value PS_QUIT) or start a game (return value PS_GAME).
+====================
+*/
+int ShowMenu( void ) {
+	enum ProgramState 	mode = PS_MENU;
+	int 				marked = 0;
+	enum MenuState		menuState = MS_MAIN_MENU;
+	SDL_Window *		sdlWindow = GetSdlWindow();
+	SDL_Renderer *		renderer = GetSdlRenderer();
+
+	DebugPrintF( "Running the menu." );
 	Button_t tabOrder[4];
-	SDL_Window *sdlWindow = GetSdlWindow();
-	SDL_Renderer *renderer = GetSdlRenderer();
 	InitializeMenuElements( tabOrder, renderer, sdlWindow );
-	TextInput( "Username:", username, renderer, sdlWindow );
+	TextInput( "Username: ", username );
 	while( 1 ) {
 		mode = Menu( sdlWindow, renderer, &marked, &menuState, tabOrder );
 		if( mode != PS_MENU ) {
@@ -133,13 +174,14 @@ int ShowMenu( void ) {
 }
 
 /*
-==========================================================
-Menu function. Checks for input applies the input then
-renders the buttons.
-==========================================================
+====================
+Menu
+
+Runs the event check and renders the menu, independently of the current menu state.
+====================
 */
-static int Menu ( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , int *menuState, Button_t *tabOrder  ) {
-	enum ProgramState mode = EventCheck( tabOrder, marked, menuState );
+static int Menu ( SDL_Window *sdlWindow, SDL_Renderer* renderer, int *marked, enum MenuState *menuState, Button_t *tabOrder  ) {
+	enum ProgramState mode = EventCheck( marked, menuState );
 	if ( mode != PS_MENU ) {
 		return mode;
 	}
@@ -149,10 +191,10 @@ static int Menu ( SDL_Window *sdlWindow, SDL_Renderer* renderer , int *marked , 
 
 /*
 ==========================================================
-Checks for keyboard input and switches button states
+Performs the event check for MS_MAIN_MENU.
 ==========================================================
 */
-static int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState ) {
+static int EventCheckMainMenu( int *marked, enum MenuState *menuState ) {
 	SDL_Event event;
 	while( SDL_PollEvent( &event ) ){
 		if( event.type == SDL_KEYDOWN ) {
@@ -166,11 +208,11 @@ static int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState
 				case SDLK_RETURN:
 					switch ( *marked ){
 						case 0:
-							*menuState = 2;
+							*menuState = MS_HOST_GAME;
 							 HostGame();
 							break;
 						case 1:
-							*menuState = 3;
+							*menuState = MS_JOIN_GAME;
 							JoinGame();
 							break;
 						case 2:
@@ -187,18 +229,25 @@ static int EventCheckMainMenu (Button_t *tabOrder , int *marked , int *menuState
 	return PS_MENU;
 }
 
-static int EventCheckLobby (Button_t *tabOrder , int *marked , int *menuState ) {
+/*
+====================
+EventCheckLobby
+
+Performs the input event check for the menu states MS_HOST_GAME and MS_JOIN_GAME.
+====================
+*/
+static int EventCheckLobby( int *marked, enum MenuState *menuState ) {
 	SDL_Event event;
 	while( SDL_PollEvent( &event ) ){
 		switch( event.type ){
 			case SDL_KEYDOWN:
 				switch ( event.key.keysym.sym ){
 					case SDLK_BACKSPACE:
-						*menuState = 1;
+						*menuState = MS_MAIN_MENU;
 						break;
 					case SDLK_RETURN:
 						// Filter menu state client lobby
-						if( !( *menuState == 2 ) ) {
+						if( !( *menuState == MS_HOST_GAME ) ) {
 							break;
 						}
 						return PS_GAME;
@@ -210,32 +259,70 @@ static int EventCheckLobby (Button_t *tabOrder , int *marked , int *menuState ) 
 	return PS_MENU;
 }
 
-static int EventCheck( Button_t *tabOrder , int *marked , int *menuState ) {
+/*
+====================
+EventCheck
+
+Preforms the state-independent event check.
+====================
+*/
+static int EventCheck( int *marked, enum MenuState *menuState ) {
 	switch( *menuState ){
-		case 1:
-			return EventCheckMainMenu(tabOrder,marked,menuState);
+		case MS_MAIN_MENU:
+			return EventCheckMainMenu( marked, menuState );
 			break;
-		case 2:
-		case 3:
-			return EventCheckLobby(tabOrder,marked,menuState);
+		case MS_HOST_GAME:
+		case MS_JOIN_GAME:
+			return EventCheckLobby( marked, menuState );
+			break;
+		case MS_OPTIONS:
+			// TODO: Implement this.
 			break;
 	}
 	return PS_MENU;
 }
 
 
+/*
+====================
+Options
+
+Shows the option submenu.
+====================
+*/
 static void Options( void ) {
 	// TODO: Implement
 }
 
+/*
+====================
+HostGame
+
+Calls the network component so that it creates a local server.
+====================
+*/
 static void HostGame( void ) {
 	Connect( 1, 0, NETWORK_STANDARD_SERVER_PORT );
 }
 
+/*
+====================
+JoinGame
+
+Calls the network component so that it creates a remote client.
+====================
+*/
 static void JoinGame( void ) {
 	Connect( 0, "127.0.0.1", NETWORK_STANDARD_SERVER_PORT );
 }
 
+/*
+====================
+GetUserName
+
+Writes the current user name into the Name argument.
+====================
+*/
 void GetUserName( char* Name ){
 	strcpy( Name, username );
 }
@@ -245,7 +332,7 @@ void GetUserName( char* Name ){
 Renders all the buttons
 ==========================================================
 */
-static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , int *menuState ) {
+static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
 	int 		w, h, i, n;
 	char *		playerNames[6];
 	SDL_Color 	white = {255, 255, 255};
@@ -290,16 +377,16 @@ static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *rendere
 		SDL_FreeSurface( surfaceMessage );
 	}
 	SDL_RenderCopy( renderer, frameTexture, NULL, &frameRect );
-	if( *menuState == 2 ) {
-		SDL_RenderCopy( renderer, startButton.Selected, NULL, &startRect );
+	if( *menuState == MS_HOST_GAME ) {
+		SDL_RenderCopy( renderer, startButton.texSelected, NULL, &startRect );
 	} else {
-		SDL_RenderCopy( renderer , startButton.NotSelected , NULL , &startRect );
+		SDL_RenderCopy( renderer, startButton.texNotSelected , NULL , &startRect );
 	}
 	SDL_RenderPresent( renderer );
 	return 0;
 }
 
-static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState ) {
+static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
 	int 		w, h, i;
 	SDL_Rect 	backgroundRect;
 	SDL_Rect 	buttonRect;
@@ -322,12 +409,12 @@ static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *render
 	for ( i = 0; i < 4; i++ ) {
 		buttonRect.x = tabOrder[i].x;
 		buttonRect.y = tabOrder[i].y;
-		buttonRect.w = tabOrder[i].Breite;
-		buttonRect.h = tabOrder[i].Hoehe;
+		buttonRect.w = tabOrder[i].width;
+		buttonRect.h = tabOrder[i].height;
 		if ( *marked == i ){
-			SDL_RenderCopy( renderer, tabOrder[i].Selected, NULL, &buttonRect );
+			SDL_RenderCopy( renderer, tabOrder[i].texSelected, NULL, &buttonRect );
 		} else {
-			SDL_RenderCopy( renderer, tabOrder[i].NotSelected, NULL, &buttonRect );
+			SDL_RenderCopy( renderer, tabOrder[i].texNotSelected, NULL, &buttonRect );
 		}
 	}
 	SDL_RenderPresent( renderer );
@@ -335,27 +422,26 @@ static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *render
 }
 
 
-static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState ) {
+static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
 	int result = 0;
 
 	switch( *menuState ) {
-		case 1:
+		case MS_MAIN_MENU:
 			result = RenderMainMenu(tabOrder,marked,renderer,sdlWindow,menuState);
 			break;
-		case 2:
-		case 3:
+		case MS_HOST_GAME:
+		case MS_JOIN_GAME:
 			result = RenderLobby(tabOrder,marked,renderer,sdlWindow,menuState);
+			break;
+		case MS_OPTIONS:
+			// TODO: Implement this
 			break;
 	}
 
 	return result;
 }
 
-/*
-==========================================================
-Sets the RGB values of a button
-==========================================================
-*/
+// The button RGB values (useless?)
 #define BTN_R 255
 #define BTN_G 255
 #define BTN_B 255
@@ -376,9 +462,9 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 
 	if( r ) {
 		temp = IMG_Load( ASSET_FOLDER "Evil/Start.png" );
-		startButton.Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		startButton.texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Start(Disabled).png" );
-		startButton.NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		startButton.texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Frame.png" );
 		frameTexture = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Titel.png" );
@@ -386,26 +472,26 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 		temp = IMG_Load( ASSET_FOLDER "Evil/Background.png" );
 		backgroundTexture = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/HostGame(Selected).png" );
-		tabOrder[0].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[0].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/HostGame(Unselected).png" );
-		tabOrder[0].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[0].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/JoinGame(Selected).png" );
-		tabOrder[1].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[1].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/JoinGame(Unselected).png" );
-		tabOrder[1].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[1].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Options(Selected).png" );
-		tabOrder[2].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[2].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Options(Unselected).png" );
-		tabOrder[2].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[2].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Exit(Selected).png" );
-		tabOrder[3].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[3].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Exit(Unselected).png" );
-		tabOrder[3].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[3].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 	} else {
 		temp = IMG_Load( ASSET_FOLDER "Good/Start.png" );
-		startButton.Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		startButton.texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/Start(Disabled).png" );
-		startButton.NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		startButton.texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/Frame.png" );
 		frameTexture = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/Titel.png" );
@@ -413,37 +499,37 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 		temp = IMG_Load( ASSET_FOLDER "Good/Background.png" );
 		backgroundTexture = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/HostGame(Selected).png" );
-		tabOrder[0].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[0].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/HostGame(Unselected).png" );
-		tabOrder[0].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[0].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/JoinGame(Selected).png" );
-		tabOrder[1].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[1].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/JoinGame(Unselected).png" );
-		tabOrder[1].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[1].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/Options(Selected).png" );
-		tabOrder[2].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[2].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/Options(Unselected).png" );
-		tabOrder[2].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[2].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/Exit(Selected).png" );
-		tabOrder[3].Selected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[3].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/Exit(Unselected).png" );
-		tabOrder[3].NotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		tabOrder[3].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 	}
 	DebugPrintF( "Loaded all menu images." );
-	DebugAssert( startButton.Selected && startButton.NotSelected && frameTexture && titleTexture && backgroundTexture );
+	DebugAssert( startButton.texSelected && startButton.texNotSelected && frameTexture && titleTexture && backgroundTexture );
 
-	tabOrder[0].Hoehe = 0.17f * h;
-	tabOrder[1].Hoehe = 0.17f * h;
-	tabOrder[2].Hoehe = 0.17f * h;
-	tabOrder[3].Hoehe = 0.17f * h;
-	tabOrder[0].Breite = 0.5f * w;
-	tabOrder[1].Breite = 0.5f * w;
-	tabOrder[2].Breite = 0.5f * w;
-	tabOrder[3].Breite = 0.5f * w;
-	tabOrder[0].x = (w / 2) - (tabOrder[0].Breite / 2);
-	tabOrder[1].x = (w / 2) - (tabOrder[1].Breite / 2);
-	tabOrder[2].x = (w / 2) - (tabOrder[2].Breite / 2);
-	tabOrder[3].x = (w / 2) - (tabOrder[3].Breite / 2);
+	tabOrder[0].height = 0.17f * h;
+	tabOrder[1].height = 0.17f * h;
+	tabOrder[2].height = 0.17f * h;
+	tabOrder[3].height = 0.17f * h;
+	tabOrder[0].width = 0.5f * w;
+	tabOrder[1].width = 0.5f * w;
+	tabOrder[2].width = 0.5f * w;
+	tabOrder[3].width = 0.5f * w;
+	tabOrder[0].x = (w / 2) - (tabOrder[0].width / 2);
+	tabOrder[1].x = (w / 2) - (tabOrder[1].width / 2);
+	tabOrder[2].x = (w / 2) - (tabOrder[2].width / 2);
+	tabOrder[3].x = (w / 2) - (tabOrder[3].width / 2);
 	tabOrder[0].y = h / 5;
 	tabOrder[1].y = ( 2 * h ) / 5;
 	tabOrder[2].y = ( 3 * h ) / 5;

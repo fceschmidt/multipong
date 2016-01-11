@@ -75,6 +75,7 @@ int InitializeProgram( int argc, char *argv[] ) {
 	InitializeNetwork();
 	InitializeGraphics();
 	InitializePhysics();
+	InitializeMenu();
 	
 	// TODO: Remove this hello message and print it in debug.
 	DebugPrintF( "Successfully started multipong." );
