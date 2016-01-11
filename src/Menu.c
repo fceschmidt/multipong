@@ -34,6 +34,7 @@ static SDL_Texture *titleTexture;
 static SDL_Texture *frameTexture;
 static Button_t 	startButton;
 static char * 		username = "multipong\0";
+static TTF_Font *	sans;
 
 static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
 
@@ -247,7 +248,6 @@ Renders all the buttons
 static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , int *menuState ) {
 	int 		w, h, i, n;
 	char *		playerNames[6];
-	TTF_Font *	sans = TTF_OpenFont( SANS_FONT_FILE, 500 );
 	SDL_Color 	white = {255, 255, 255};
 
 	GetPlayerList( playerNames, &n );
@@ -336,16 +336,30 @@ static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *render
 
 
 static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, int *menuState ) {
+	int result = 0;
+	static unsigned int last = 0;
+	unsigned int frameTime;
+	char newTitle[50];
+
 	switch( *menuState ) {
 		case 1:
-			return RenderMainMenu(tabOrder,marked,renderer,sdlWindow,menuState);
+			result = RenderMainMenu(tabOrder,marked,renderer,sdlWindow,menuState);
 			break;
 		case 2:
 		case 3:
-			return RenderLobby(tabOrder,marked,renderer,sdlWindow,menuState);
+			result = RenderLobby(tabOrder,marked,renderer,sdlWindow,menuState);
 			break;
 	}
-	return 0;
+
+	frameTime = SDL_GetTicks() - last;
+	while( 1000.0f / (float)( SDL_GetTicks() - last ) > 60.0f ) {
+		SDL_Delay( 1 );
+	}
+	sprintf( newTitle, "multipong (%4.1f fps, %d%%)", 1000.0f / (float)( SDL_GetTicks() - last ), frameTime * 100 / ( SDL_GetTicks() - last ) );
+	last = SDL_GetTicks();
+	SDL_SetWindowTitle( GetSdlWindow(), newTitle );
+
+	return result;
 }
 
 /*
@@ -366,6 +380,7 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 	int w,h;
 	int r = rand() % 2;
 
+	sans = TTF_OpenFont( SANS_FONT_FILE, 500 );
 	SDL_GetWindowSize( sdlWindow, &w, &h );
 	DebugPrintF( "SDL_GetWindowSize returned %d x %d pixels.", w, h );
 	SDL_Surface *temp;
