@@ -302,6 +302,7 @@ static void LineCircleCollision2D( struct Circle2D circle, struct Line2D line, i
 		struct Vector2D	offsetVector;
 		offsetVector.dx = line.vector.dy;
 		offsetVector.dy = -line.vector.dx;
+		offsetLine.vector = offsetVector;	// Quick fix!
 		offsetLine.point = AddVectorToPoint2D( line.point, ScaleVector2D( offsetVector, circle.radius / VectorNorm2D( offsetVector ) ) );
 
 		// Now write the value to the variable.
@@ -377,11 +378,13 @@ int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
 	if( !isRight ) {
 		if( projection >= *currentPosition && projection <= *currentPosition + PADDLE_SIZE ) {
 			RegisterHit( segment );
-			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ), ball->direction );
+			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ).vector, ball->direction );
 		} else {
 			// TODO: Give points and reset ball etc.
 		}
 	}
+
+	return 0;
 }
 
 /*
@@ -393,6 +396,7 @@ Performs some initialization tasks for the physics component. Should be called a
 */
 int InitializePhysics( void ) {
 	sdlKeyArray = SDL_GetKeyboardState( NULL );
+	return 0;
 }
 
 /*
