@@ -1,9 +1,12 @@
 #include "Game.h"
 #include "Output.h"
 #include "Main.h"
+#include "Network.h"
+#include "Physics.h"
 #include "Debug/Debug.h"
 #include <time.h>
 #include <stdlib.h>
+#include <SDL2/SDL.h>
 
 static struct GameState	currentState;
 
@@ -17,19 +20,17 @@ Resets the GameState.
 ====================
 */
 static int InitializeGame( void ) {
-	// TODO: Change this!
-	int i;
-	currentState.numPlayers = 6;
-	currentState.players = malloc( sizeof( struct Player ) * 6 );
+	int 	i;
+	char *	playerNames[6];
+
+	GetPlayerList( playerNames, &currentState.numPlayers );
+	currentState.players = malloc( sizeof( struct Player ) * currentState.numPlayers );
 	for( i = 0; i < currentState.numPlayers; i++ ) {
-		currentState.players[i].name = "pong";
+		currentState.players[i].name = playerNames[i];
 		currentState.players[i].position = 0.0f;
 		currentState.players[i].score = 0;
 	}
-	currentState.ball.position.x = 0.0f;
-	currentState.ball.position.y = 0.0f;
-	currentState.ball.direction.dx = 0.0f;
-	currentState.ball.direction.dy = 0.0f;
+	InitializeBall( &currentState.ball );
 	return 0;
 }
 
@@ -43,9 +44,20 @@ Currently, displays the GameState for 10 seconds. TODO: Change in the future so 
 int RunGame( void ) {
 	DebugPrintF( "RunGame called." );
 	InitializeGame();
+	NetworkStartGame( NETWORK_STANDARD_DATA_PORT );
+	
+	// For timekeeping...
+	unsigned int lastFrame = SDL_GetTicks();
+	// For time limitation...
 	time_t start = time( NULL );
+
 	while( time( NULL ) < start + 10 ) {
+		ProcessPhysics( &currentState, ( float )( SDL_GetTicks() - lastFrame ) / 1000.0f );
+		lastFrame = SDL_GetTicks();
+		ProcessInGame( &currentState );
 		DisplayGameState( &currentState );
+		// TODO: Remove this once the state is actually displayed..
+		SDL_Delay( 10 );
 	}
 	return PS_MENU;
 }
