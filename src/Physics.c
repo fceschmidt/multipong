@@ -414,6 +414,22 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 	// Determine which player we have to check.
 	segment = GetPointSegment( newPosition, state->numPlayers );
 
+	// In 2-player mode, check collision with the lines y = -1.0 and y = 1.0.
+	if( state->numPlayers == 2 ) {
+		struct Line2D lowerLine = { .point = { .x = 1.0f, .y = -1.0f }, .vector = { .dx = -2.0f, .dy = 0.0f } };
+		struct Line2D upperLine = { .point = { .x = -1.0f, .y = 1.0f }, .vector = { .dx = 2.0f, .dy = 0.0f } };
+		LineCircleCollision2D( ballCircle, lowerLine, &isRight, &projection );
+		if( !isRight ) {
+			ball->direction = GetReflectionVector( lowerLine.vector, ball->direction );
+			return;
+		}
+		LineCircleCollision2D( ballCircle, upperLine, &isRight, &projection );
+		if( !isRight ) {
+			ball->direction = GetReflectionVector( upperLine.vector, ball->direction );
+			return;
+		}
+	}
+
 	// Check collision with the player paddle.
 	currentPosition = &state->players[segment].position;
 	LineCircleCollision2D( ballCircle, GetPlayerLine( segment, state->numPlayers ), &isRight, &projection );
