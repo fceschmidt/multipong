@@ -76,27 +76,29 @@ static int	ConnectRemoteServer( TCPsocket *socket, SDLNet_SocketSet *socketSet, 
 static int	ConnectRemoteServerIp( TCPsocket *socket, SDLNet_SocketSet *socketSet, IPaddress *remoteAddress );
 static int	NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, int maxlen );
 
-static int	BroadcastPacketToClients( const void *data, int length );
-
 static int	AddPlayer( struct NetworkClientInfo client );
 static void	RemovePlayer( int playerId );
 
-static int	ProcessLobbyServer( void );
+// SERVER-ONLY FUNCTIONS
+
+static int	BroadcastPacketToClients( const void *data, int length );
+static void	IssueAllJoins( TCPsocket socket );
 static int	ServerAcceptClients( void );
-static int	ProcessLobbyServerIncomingPackets( int client, char *bytes, int numBytes );
+static int	ServerProcessLobbyIncomingPackets( int client, char *bytes, int numBytes );
 static void	ServerHandleClientQuit( int playerId );
 static void	ServerHandleClientMyName( int playerId, char *name );
-static void	IssueAllJoins( TCPsocket socket );
+static int	ServerProcessLobby( void );
 static int	AcceptAllDataClients( void );
+static int	ServerProcessInGame( struct GameState *state );
 
-static int	ProcessLobbyClient( void );
-static int	ProcessLobbyClientIncomingPackets( char *bytes, int numBytes );
+// CLIENT-ONLY FUNCTIONS
+
+static int	ClientProcessLobby( void );
+static int	ClientProcessLobbyIncomingPackets( char *bytes, int numBytes );
 static void	ClientHandleClientJoin( int playerId, char *name );
 static void	ClientHandleServerYourId( int newId );
 static void	ClientHandleServerStartGame();
-
-static int	ProcessInGameServer( struct GameState *state );
-static int	ProcessInGameClient( struct GameState *state );
+static int	ClientProcessInGame( struct GameState *state );
 
 // These two functions are accessed by the physics component... dont' make them static!
 int			IsServer( void );
@@ -294,9 +296,9 @@ int ProcessLobby( void ) {
 	}
 
 	if( isServer ) {
-		return ProcessLobbyServer();
+		return ServerProcessLobby();
 	} else {
-		return ProcessLobbyClient();
+		return ClientProcessLobby();
 	}
 }
 
@@ -316,9 +318,9 @@ int ProcessInGame( struct GameState *state ) {
 	}
 
 	if( isServer ) {
-		return ProcessInGameServer( state );
+		return ServerProcessInGame( state );
 	} else {
-		return ProcessInGameClient( state );
+		return ClientProcessInGame( state );
 	}
 }
 
@@ -376,12 +378,12 @@ static int ServerAcceptClients( void ) {
 
 /*
 ====================
-ProcessLobbyServerIncomingPackets
+ServerProcessLobbyIncomingPackets
 
 Given a client ID and a packet buffer, reads all the packets and takes action according to their contents.
 ====================
 */
-static int ProcessLobbyServerIncomingPackets( int client, char *bytes, int numBytes ) {
+static int ServerProcessLobbyIncomingPackets( int client, char *bytes, int numBytes ) {
 	int bReadPosition = 0;
 	int endOfStream = 0;
 	int stringLength;
@@ -415,13 +417,13 @@ static int ProcessLobbyServerIncomingPackets( int client, char *bytes, int numBy
 
 /*
 ====================
-ProcessLobbyServer
+ServerProcessLobby
 
 Accepts incoming connections, receives information packets from clients and
 informs all clients about the new client.
 ====================
 */
-static int ProcessLobbyServer( void ) {
+static int ServerProcessLobby( void ) {
 	ServerAcceptClients();
 
 	// Process other clients' packets!
@@ -442,7 +444,7 @@ static int ProcessLobbyServer( void ) {
 				break;
 			}
 			DebugPrintF( "Received %d bytes.", numBytes );
-			ProcessLobbyServerIncomingPackets( client, bytes, numBytes );
+			ServerProcessLobbyIncomingPackets( client, bytes, numBytes );
 		}
 	}
 
@@ -534,12 +536,12 @@ static int BroadcastPacketToClients( const void *data, int length ) {
 
 /*
 ====================
-ProcessLobbyClientIncomingPackets
+ClientProcessLobbyIncomingPackets
 
 Given a packet buffer, reads all packets and takes action according to their contents.
 ====================
 */
-static int ProcessLobbyClientIncomingPackets( char *bytes, int numBytes ) {
+static int ClientProcessLobbyIncomingPackets( char *bytes, int numBytes ) {
 	int 	playerId;
 	int		stringLength;
 	char *	alias;
@@ -583,13 +585,13 @@ static int ProcessLobbyClientIncomingPackets( char *bytes, int numBytes ) {
 
 /*
 ====================
-ProcessLobbyClient
+ClientProcessLobby
 
 Answers server packets with PID_MY_NAME, PID_QUIT and accepts packets like
 PID_JOIN, PID_YOUR_ID and PID_START_GAME
 ====================
 */
-static int ProcessLobbyClient( void ) {
+static int ClientProcessLobby( void ) {
 	char 	bytes[1024];
 	int		numBytes;
 	
@@ -598,7 +600,7 @@ static int ProcessLobbyClient( void ) {
 		if( numBytes <= 0 ) {
 			break;
 		}
-		ProcessLobbyClientIncomingPackets( bytes, numBytes );
+		ClientProcessLobbyIncomingPackets( bytes, numBytes );
 	}
 
 	return 0;
@@ -775,12 +777,12 @@ int NetworkStartGame( uint16_t udpPort ) {
 
 /*
 ====================
-ProcessInGameClient
+ClientProcessInGame
 
 The in-game client loop.
 ====================
 */
-static int ProcessInGameClient( struct GameState *state ) {
+static int ClientProcessInGame( struct GameState *state ) {
 	// Null pointer check
 	if( !state || !isInitialized || !isConnected  ) {
 		return -1;
@@ -795,12 +797,12 @@ static int ProcessInGameClient( struct GameState *state ) {
 
 /*
 ====================
-ProcessInGameServer
+ServerProcessInGame
 
 The in-game server loop.
 ====================
 */
-static int ProcessInGameServer( struct GameState *state ) {
+static int ServerProcessInGame( struct GameState *state ) {
 	// Null pointer check
 	if( !state || !isInitialized || !isConnected ) {
 		return -1;
