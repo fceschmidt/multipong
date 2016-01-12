@@ -1,4 +1,5 @@
 #include "Network.h"
+#include "Physics.h"
 #include "Debug/Debug.h"
 #include <SDL2/SDL_net.h>
 #include <string.h>
@@ -54,6 +55,18 @@ enum PacketId {
 	PID_SCORE		// New score (+player_id+score)
 };
 
+/*
+==========================================================
+
+A union that we need in some places to conform to strict aliasing rules.
+
+==========================================================
+*/
+union IntFloat {
+	int		i;
+	float	f;
+};
+
 // VARIABLES
 
 static int 						isServer = 0;			// A boolean value which is 1 if this component is a server and 0 if it is a client.
@@ -79,6 +92,9 @@ static int	NonBlockingRecv( TCPsocket socket, SDLNet_SocketSet set, char *data, 
 static int	AddPlayer( struct NetworkClientInfo client );
 static void	RemovePlayer( int playerId );
 
+static void SerializeGameStateGeometry( const struct GameState *state, char **buffer, int *bufferLength );
+static void DeserializeGameStateGeometry( struct GameState *state, const char *buffer, int bufferLength );
+
 // SERVER-ONLY FUNCTIONS
 
 static int	BroadcastPacketToClients( const void *data, int length );
@@ -89,6 +105,10 @@ static void	ServerHandleClientQuit( int playerId );
 static void	ServerHandleClientMyName( int playerId, char *name );
 static int	ServerProcessLobby( void );
 static int	AcceptAllDataClients( void );
+static void ServerUpdateClientGeometry( struct GameState *state );
+static void ServerSendGameStateGeometry( const struct GameState *state );
+static void ServerInGameSendHit( int player );
+static void ServerInGameSendScore( const struct GameState *state, int player );
 static int	ServerProcessInGame( struct GameState *state );
 
 // CLIENT-ONLY FUNCTIONS
@@ -98,6 +118,10 @@ static int	ClientProcessLobbyIncomingPackets( char *bytes, int numBytes );
 static void	ClientHandleClientJoin( int playerId, char *name );
 static void	ClientHandleServerYourId( int newId );
 static void	ClientHandleServerStartGame();
+static void ClientSendStateGeometry( const struct GameState *state );
+static void ClientUpdateStateGeometry( struct GameState *state );
+static void ClientUpdateStateInformation( struct GameState *state );
+static void	ClientProcessInGameIncomingPackets( struct GameState *state, char *bytes, int numBytes );
 static int	ClientProcessInGame( struct GameState *state );
 
 // These two functions are accessed by the physics component... dont' make them static!
@@ -525,9 +549,9 @@ Takes a packet and broadcasts it to all connected clients (server only)
 */
 static int BroadcastPacketToClients( const void *data, int length ) {
 	int client;
+	DebugPrintF( "Broadcasting a %d packet.", SDLNet_Read32( data ) );
 	for( client = 0; client < numClients; client++ ) {
 		if( clients[client].socket ) {
-			DebugPrintF( "Broadcasting a %d packet.", SDLNet_Read32( data ) );
 			SDLNet_TCP_Send( clients[client].socket, data, length );
 		}
 	}
@@ -770,9 +794,316 @@ int NetworkStartGame( uint16_t udpPort ) {
 	SDLNet_Write32( udpPort,				&packet[8] );
 	BroadcastPacketToClients( packet, 12 );
 
+	// Register the broadcast functions with the physics component so hits and misses get sent to the other clients.
+	AtRegisterHit( &ServerInGameSendHit );
+	AtRegisterPoint( &ServerInGameSendScore );
+
 	AcceptAllDataClients();
 
 	return 0;
+}
+
+/*
+====================
+DeserializeGameStateGeometry
+
+Given a buffer containing a serialized GameState, writes the information from the buffer to the state.
+====================
+*/
+static void DeserializeGameStateGeometry( struct GameState *state, const char *buffer, int bufferLength ) {
+	DebugAssert( state );
+
+	// This is some really nice code. Need this in order to not break aliasing rules. Hell yeah.
+	union IntFloat *modifier;
+
+	// Read the ball position
+	modifier = ( union IntFloat * )&state->ball.position.x;
+	modifier->i = SDLNet_Read32( &buffer[0] );
+	modifier = ( union IntFloat * )&state->ball.position.y;
+	modifier->i = SDLNet_Read32( &buffer[4] );
+
+	// Read the ball direction
+	modifier = ( union IntFloat * )&state->ball.direction.dx;
+	modifier->i = SDLNet_Read32( &buffer[8] );
+	modifier = ( union IntFloat * )&state->ball.direction.dy;
+	modifier->i = SDLNet_Read32( &buffer[12] );
+
+	// Read the players' paddle positions.
+	int numPlayers = ( bufferLength - 16 ) / 4;
+	int player;
+	for( player = 0; player < numPlayers; player++ ) {
+		state->players[player].position = SDLNet_Read32( &buffer[16 + 4 * player] );
+	}
+
+	return;
+}
+
+/*
+====================
+SerializeGameStateGeometry
+
+Given a GameState, serializes it and writes the result into the buffer.
+====================
+*/
+static void SerializeGameStateGeometry( const struct GameState *state, char **buffer, int *bufferLength ) {
+	DebugAssert( buffer );
+
+	union IntFloat *modifier;
+
+	// Calculate the needed buffer length.
+	int neededLength = 16 + 4 * state->numPlayers;
+
+	// Pointer null checks.
+	if( bufferLength ) {
+		*bufferLength = neededLength;
+	}
+	if( !buffer ) {
+		return;
+	}
+
+	// Allocate the buffer.
+	*buffer = malloc( neededLength );
+
+	// Write the ball position.
+	modifier = ( union IntFloat * )&state->ball.position.x;
+	SDLNet_Write32( modifier->i,		&buffer[0] );
+	modifier = ( union IntFloat * )&state->ball.position.y;
+	SDLNet_Write32( modifier->i,		&buffer[4] );
+	
+	// Write the ball direction.
+	modifier = ( union IntFloat * )&state->ball.direction.dx;
+	SDLNet_Write32( modifier->i,	&buffer[8] );
+	modifier = ( union IntFloat * )&state->ball.direction.dy;
+	SDLNet_Write32( modifier->i,	&buffer[12] );
+
+	// Write the players' paddle positions.
+	int player;
+	for( player = 0; player < state->numPlayers; player++ ) {
+		modifier = ( union IntFloat * )&state->players[player].position;
+		SDLNet_Write32( modifier->i, &buffer[16 + 4 * player ] );
+	}
+
+	return;
+}
+
+/*
+====================
+ServerUpdateClientGeometry
+
+Checks all clients' data sockets for new information and applies it in the state variable passed.
+====================
+*/
+static void ServerUpdateClientGeometry( struct GameState *state ) {
+	int				readPosition;
+	int				player;
+	char			bytes[1024];
+	int				numBytes;
+	union IntFloat *modifier;
+
+	for( player = 0; player < state->numPlayers; player++ ) {
+		// Receive and check length
+		numBytes = NonBlockingRecv( clients[player].dataSocket, clients[player].dataSocketSet, bytes, sizeof( bytes ) );
+		if( numBytes <= 0 ) {
+			continue;
+		}
+		
+		// Read information
+		readPosition = numBytes - 4;
+		modifier = ( union IntFloat * )&state->players[player].position;
+		modifier->i = SDLNet_Read32( &bytes[readPosition] );
+	}
+}
+
+/*
+====================
+ServerSendGameStateGeometry
+
+Sends a packet containing the game state geometry to all clients.
+====================
+*/
+static void ServerSendGameStateGeometry( const struct GameState *state ) {
+	char *	bytes;
+	int		numBytes;
+	int		client;
+
+	SerializeGameStateGeometry( state, &bytes, &numBytes );
+	for( client = 0; client < numClients; client++ ) {
+		if( clients[client].dataSocket ) {
+			SDLNet_TCP_Send( clients[client].dataSocket, bytes, numBytes );
+		}
+	}
+}
+
+/*
+====================
+ServerInGameSendHit
+
+Gets called whenever the ball hits a paddle. Broadcasts a packet for that event.
+====================
+*/
+static void ServerInGameSendHit( int player ) {
+	char	bytes[12];
+	
+	SDLNet_Write32( ( int )PID_BALL_HIT,	&bytes[0] );
+	SDLNet_Write32( sizeof( bytes ),		&bytes[4] );
+	SDLNet_Write32( player,					&bytes[8] );
+
+	BroadcastPacketToClients( bytes, sizeof( bytes ) );
+}
+
+/*
+====================
+ServerInGameSendScore
+
+Gets called whenever the ball misses a paddle. Broadcasts a packet for that event.
+====================
+*/
+static void ServerInGameSendScore( const struct GameState *state, int player ) {
+	char *	bytes;
+	int 	numBytes;
+	int		client;
+
+	numBytes = 4 * state->numPlayers;
+	bytes = malloc( numBytes );
+	for( client = 0; client < state->numPlayers; client++ ) {
+		SDLNet_Write32( state->players[client].score, &bytes[4 * client] );
+	}
+
+	BroadcastPacketToClients( bytes, numBytes );
+}
+
+
+/*
+====================
+ServerProcessInGame
+
+The in-game server loop.
+====================
+*/
+static int ServerProcessInGame( struct GameState *state ) {
+	// Null pointer check
+	if( !state || !isInitialized || !isConnected ) {
+		return -1;
+	}
+
+	// Update own information from clients (dataSocket)
+	ServerUpdateClientGeometry( state );
+	// Broadcast complete GameState information (dataSocket)
+	ServerSendGameStateGeometry( state );
+	// NOTE: The functions which broadcast hits and score lists effectively get called by the physics component. (activeSocket)
+
+	return 0;
+}
+
+/*
+====================
+ClientSendStateGeometry
+
+Sends information about the client state on the data socket.
+====================
+*/
+static void ClientSendStateGeometry( const struct GameState *state ) {
+	char *			packet;
+	float			position = state->players[thisClient].position;
+	union IntFloat *modifier;
+
+	packet = malloc( sizeof( position ) );
+	modifier = ( union IntFloat * )&position;
+	SDLNet_Write32( modifier->i, &packet[0] );
+	SDLNet_TCP_Send( dataSocket, packet, sizeof( position ) );
+}
+
+/*
+====================
+ClientUpdateStateGeometry
+
+Receives information about the client state on the data socket.
+====================
+*/
+static void ClientUpdateStateGeometry( struct GameState *state ) {
+	// Try to receive and return if there isn't any new information.
+	char buffer[1024];
+	int length = NonBlockingRecv( dataSocket, dataSocketSet, buffer, sizeof( buffer ) );
+	if( length <= 0 ) {
+		return;
+	}
+
+	// Prepare for new state data.
+	struct GameState newState;
+	newState.players = malloc( state->numPlayers * sizeof( struct Player ) );
+
+	// Find the last actual GameState in the buffer.
+	int chunkLength = 16 + 4 * state->numPlayers;
+	int lastChunkIndex = length - chunkLength;
+
+	// Deserialize that one
+	DeserializeGameStateGeometry( &newState, &buffer[lastChunkIndex], chunkLength );
+
+	// Copy all the information except for the position of this client (we know it better!)
+	int player;
+	state->ball = newState.ball;
+	for( player = 0; player < state->numPlayers; player++ ) {
+		if( player != thisClient ) {
+			state->players[player].position = newState.players[player].position;
+		}
+	}
+
+	// And we're done!
+	return;
+}
+
+/*
+====================
+ClientProcessInGameIncomingPackets
+
+Given a buffer of packets and its length, acts upon the packet contents (PID_BALL_HIT and PID_SCORE).
+====================
+*/
+static void	ClientProcessInGameIncomingPackets( struct GameState *state, char *bytes, int numBytes ) {
+	int		clientId;
+	int		player;
+
+	int		bReadPosition = 0;
+	int		endOfStream = 0;
+	
+	while( !endOfStream ) {
+		switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
+			case PID_BALL_HIT:
+				clientId = SDLNet_Read32( &bytes[bReadPosition + 8] );
+				RegisterHit( clientId );
+				break;
+			case PID_SCORE:
+				for( player = 0; player < state->numPlayers; player++ ) {
+					state->players[player].score = SDLNet_Read32( &bytes[bReadPosition + 8 + 4 * player] );
+				}
+				break;
+		}
+		bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
+		if( bReadPosition >= numBytes ) {
+			endOfStream = 1;
+		}
+	}
+}
+
+/*
+====================
+ClientUpdateStateInformation
+
+Receives information about the game state (score lists and hits) on the active socket.
+====================
+*/
+static void ClientUpdateStateInformation( struct GameState *state ) {
+	// Try to receive and return in case there isn't any new information.
+	char 	bytes[1024];
+	int		numBytes;
+	
+	while( 1 ) {
+		numBytes = NonBlockingRecv( activeSocket, activeSocketSet, bytes, sizeof( bytes ) );
+		if( numBytes <= 0 ) {
+			break;
+		}
+		ClientProcessInGameIncomingPackets( state, bytes, numBytes );
+	}
 }
 
 /*
@@ -788,30 +1119,15 @@ static int ClientProcessInGame( struct GameState *state ) {
 		return -1;
 	}
 
-	// TODO: Broadcast own information from state (dataSocket)
-	// TODO: Update foreign and ball information into state (dataSocket)
-	// TODO: Register hits and score lists from activeSocket
+	// Send your own paddle's position to the server
+	ClientSendStateGeometry( state );
+
+	// Receive ball position/direction and other paddle's positions
+	ClientUpdateStateGeometry( state );
 	
-	return 0;
-}
-
-/*
-====================
-ServerProcessInGame
-
-The in-game server loop.
-====================
-*/
-static int ServerProcessInGame( struct GameState *state ) {
-	// Null pointer check
-	if( !state || !isInitialized || !isConnected ) {
-		return -1;
-	}
-
-	// TODO: Update own information from clients (dataSocket)
-	// TODO: Broadcast complete GameState information (dataSocket)
-	// TODO: Broadcast hits and score lists (activeSocket)
-
+	// Receive ball hits and score lists from the server
+	ClientUpdateStateInformation( state );
+	
 	return 0;
 }
 
