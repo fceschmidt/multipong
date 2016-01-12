@@ -48,7 +48,7 @@ static void				HandleInput( float deltaSeconds );
 static void				DisplaceUserPaddle( struct GameState *state, float deltaSeconds );
 static void				BallLogic( struct GameState *state, float deltaSeconds );
 static void				RegisterPoint( struct GameState *state );
-static void				ResetBall( struct GameState *state );
+static void				ResetBall( struct Ball *ball );
 static struct Vector2D	VectorFromPolar2D( float angle, float norm );
 
 // Imported from the network component.
@@ -427,7 +427,7 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ).vector, ball->direction );
 		} else {
 			RegisterPoint( state );
-			ResetBall( state );
+			ResetBall( &state->ball );
 		}
 	}
 }
@@ -503,16 +503,16 @@ ResetBall
 Resets the ball to the center of the pitch and assigns a new movement vector.
 ====================
 */
-static void ResetBall( struct GameState *state ) {
+static void ResetBall( struct Ball *ball ) {
 	// Reset lastHit so that nobody gets a point until anybody actually hits the ball.
 	lastHit = -1;
 
 	// Reset ball position
-	state->ball.position.x = 0.0f;
-	state->ball.position.y = 0.0f;
+	ball->position.x = 0.0f;
+	ball->position.y = 0.0f;
 
 	// New random movement vector.
-	state->ball.direction = VectorFromPolar2D( DEGREES_TO_RADIANS( rand() % 360 ), DEFAULT_BALL_SPEED );
+	ball->direction = VectorFromPolar2D( DEGREES_TO_RADIANS( rand() % 360 ), DEFAULT_BALL_SPEED );
 }
 
 
@@ -529,3 +529,15 @@ static struct Vector2D VectorFromPolar2D( float angle, float norm ) {
 	result.dy = norm * sin( angle );
 	return result;
 }
+
+/*
+====================
+InitializeBall
+
+Initializes a ball structure for a new game.
+====================
+*/
+void InitializeBall( struct Ball *ball ) {
+	ResetBall( ball );
+}
+
