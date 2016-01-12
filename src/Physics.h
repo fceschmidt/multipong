@@ -6,7 +6,7 @@
 #define PADDLE_SIZE 0.1f
 
 typedef void ( *registerHitHandler_t )( int player );
-typedef void ( *registerPointHandler_t )( const struct *GameState state, int player );
+typedef void ( *registerPointHandler_t )( const struct GameState *state, int player );
 
 /*
 ==========================================================
@@ -29,6 +29,5 @@ int				LastHit( void );
 struct Line2D	GetPlayerLine( int player, int numPlayers );
 struct Vector2D	ScaleVector2D( struct Vector2D vector, float scalar );
 struct Point2D	AddVectorToPoint2D( struct Point2D point, struct Vector2D vector );
-
 
 #endif

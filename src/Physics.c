@@ -46,7 +46,7 @@ static struct Vector2D	GetReflectionVector( struct Vector2D wall, struct Vector2
 static void				LineCircleCollision2D( struct Circle2D circle, struct Line2D line, int *isRight, float *projection );
 static void				HandleInput( float deltaSeconds );
 static void				DisplaceUserPaddle( struct GameState *state, float deltaSeconds );
-static void				BallLogic( struct GameState *state, float DeltaSeconds );
+static void				BallLogic( struct GameState *state, float deltaSeconds );
 static void				RegisterPoint( struct GameState *state );
 static void				ResetBall( struct GameState *state );
 static struct Vector2D	VectorFromPolar2D( float angle, float norm );
@@ -400,8 +400,9 @@ BallLogic
 Calculates the new ball position and registers hits and misses according to the ball and paddle states.
 ====================
 */
-static void BallLogic( struct GameState *state, float DeltaSeconds ) {
+static void BallLogic( struct GameState *state, float deltaSeconds ) {
 	struct Ball *	ball = &state->ball;
+	float *			currentPosition;
 	int 			segment;
 	struct Circle2D	ballCircle;
 	struct Point2D 	newPosition = AddVectorToPoint2D( ball->position, ScaleVector2D( ball->direction, deltaSeconds ) );
@@ -414,6 +415,7 @@ static void BallLogic( struct GameState *state, float DeltaSeconds ) {
 	segment = GetPointSegment( newPosition, state->numPlayers );
 
 	// Check collision with the player paddle.
+	currentPosition = &state->players[segment].position;
 	LineCircleCollision2D( ballCircle, GetPlayerLine( segment, state->numPlayers ), &isRight, &projection );
 	if( isRight ) {
 		// Normal displacement.
