@@ -26,12 +26,13 @@ struct Circle2D {
 
 // VARIABLES
 
-static registerHitHandler_t	rhHandler = NULL;
-static int					lastHit = -1;
-static const unsigned char *sdlKeyArray = NULL;
-static int					clockwiseKey = SDLK_LEFT;
-static int					counterclockwiseKey = SDLK_RIGHT;
-static float				userPaddleSpeed = 0.0f;
+static registerHitHandler_t		rhHandler = NULL;
+static registerPointHandler_t	rpHandler = NULL;
+static int						lastHit = -1;
+static const unsigned char *	sdlKeyArray = NULL;
+static int						clockwiseKey = SDLK_LEFT;
+static int						counterclockwiseKey = SDLK_RIGHT;
+static float					userPaddleSpeed = 0.0f;
 
 // FUNCTIONS
 
@@ -43,7 +44,12 @@ static float			GetVectorAngle2D( struct Vector2D vector1, struct Vector2D vector
 static float			ScalarProduct2D( struct Vector2D vector1, struct Vector2D vector2 );
 static struct Vector2D	GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement );
 static void				LineCircleCollision2D( struct Circle2D circle, struct Line2D line, int *isRight, float *projection );
-static void				HandleInput( struct GameState *state, float deltaSeconds );
+static void				HandleInput( float deltaSeconds );
+static void				DisplaceUserPaddle( struct GameState *state, float deltaSeconds );
+static void				BallLogic( struct GameState *state, float DeltaSeconds );
+static void				RegisterPoint( struct GameState *state );
+static void				ResetBall( struct GameState *state );
+static struct Vector2D	VectorFromPolar2D( float angle, float norm );
 
 // Imported from the network component.
 extern int				IsServer( void );
@@ -271,7 +277,38 @@ Registers when a ball gets hit by a paddle. Also calls the hit handler.
 */
 void RegisterHit( int player ) {
 	lastHit = player;
-	rhHandler( player );
+	if( rhHandler ) {
+		rhHandler( player );
+	}
+}
+
+/*
+====================
+AtRegisterPoint
+
+Register a function which should be called when some player gets a point.
+====================
+*/
+void AtRegisterPoint( registerPointHandler_t handler ) {
+	rpHandler = handler;
+}
+
+/*
+====================
+RegisterPoint
+
+Registers when the ball moves beyond the pitch and determines which player, if any, gets a point. If so, it calls the event handler registered with rpHandler.
+====================
+*/
+static void RegisterPoint( struct GameState *state ) {
+	// Check if any player got lastHit
+	if( lastHit >= 0 && lastHit < state->numPlayers ) {
+		// Increment that player's score and call the event handler.
+		state->players[lastHit].score++;
+		if( rpHandler ) {
+			rpHandler( state, lastHit );
+		}
+	}
 }
 
 /*
@@ -336,20 +373,12 @@ static struct Vector2D GetReflectionVector( struct Vector2D wall, struct Vector2
 
 /*
 ====================
-ProcessPhysics
+DisplaceUserPaddle
 
-Writes changed values to the state variable.
+Takes values from global variables and displaces the user paddle accordingly.
 ====================
 */
-int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
-	DebugAssert( deltaSeconds > 0.0f && state );
-
-	if( deltaSeconds <= 0.0f || !state ) {
-		return -1;
-	}
-
-	// CODE FOR THE USER INPUT
-	HandleInput( state, deltaSeconds );	// Checks arrow keys and applies paddle speed (not paddle displacement).
+static void DisplaceUserPaddle( struct GameState *state, float deltaSeconds ) {
 	float imminentDisplacement = userPaddleSpeed * deltaSeconds;
 	float *currentPosition = &state->players[ThisClient()].position;
 	*currentPosition += imminentDisplacement;
@@ -362,8 +391,16 @@ int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
 		*currentPosition = PADDLE_MIN_POS;
 		userPaddleSpeed = 0.0f;
 	}
+}
 
-	// Code for the ball and collisions
+/*
+====================
+BallLogic
+
+Calculates the new ball position and registers hits and misses according to the ball and paddle states.
+====================
+*/
+static void BallLogic( struct GameState *state, float DeltaSeconds ) {
 	struct Ball *	ball = &state->ball;
 	int 			segment;
 	struct Circle2D	ballCircle;
@@ -373,16 +410,48 @@ int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
 	ballCircle.point = newPosition;
 	ballCircle.radius = DEFAULT_BALL_RADIUS;
 
+	// Determine which player we have to check.
 	segment = GetPointSegment( newPosition, state->numPlayers );
+
+	// Check collision with the player paddle.
 	LineCircleCollision2D( ballCircle, GetPlayerLine( segment, state->numPlayers ), &isRight, &projection );
-	if( !isRight ) {
+	if( isRight ) {
+		// Normal displacement.
+		ball->position = ballCircle.point;
+	} else {
+		// Check if the paddle hits the ball!
 		if( projection >= *currentPosition && projection <= *currentPosition + PADDLE_SIZE ) {
 			RegisterHit( segment );
 			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ).vector, ball->direction );
 		} else {
-			// TODO: Give points and reset ball etc.
+			RegisterPoint( state );
+			ResetBall( state );
 		}
 	}
+}
+
+/*
+====================
+ProcessPhysics
+
+Calculates a new game state and writes changed values to the state variable.
+====================
+*/
+int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
+	DebugAssert( deltaSeconds > 0.0f && state );
+
+	if( deltaSeconds <= 0.0f || !state ) {
+		return -1;
+	}
+
+	// Code for the user input.
+	HandleInput( deltaSeconds );
+
+	// Handles what happens to the paddle according to input.
+	DisplaceUserPaddle( state, deltaSeconds );
+
+	// Code for the ball and collisions
+	BallLogic( state, deltaSeconds );
 
 	return 0;
 }
@@ -406,7 +475,7 @@ HandleInput
 Handles input from the keyboard that is relevant for the physics component.
 ====================
 */
-static void	HandleInput( struct GameState *state, float deltaSeconds ) {
+static void	HandleInput( float deltaSeconds ) {
 	// Check for keys.
 	SDL_PumpEvents();
 
@@ -425,3 +494,36 @@ static void	HandleInput( struct GameState *state, float deltaSeconds ) {
 	}
 }
 
+/*
+====================
+ResetBall
+
+Resets the ball to the center of the pitch and assigns a new movement vector.
+====================
+*/
+static void ResetBall( struct GameState *state ) {
+	// Reset lastHit so that nobody gets a point until anybody actually hits the ball.
+	lastHit = -1;
+
+	// Reset ball position
+	state->ball.position.x = 0.0f;
+	state->ball.position.y = 0.0f;
+
+	// New random movement vector.
+	state->ball.direction = VectorFromPolar2D( DEGREES_TO_RADIANS( rand() % 360 ), DEFAULT_BALL_SPEED );
+}
+
+
+/*
+====================
+VectorFromPolar2D
+
+Given the polar form of a vector, returns a vector in coordinate form.
+====================
+*/
+static struct Vector2D VectorFromPolar2D( float angle, float norm ) {
+	struct Vector2D result;
+	result.dx = norm * cos( angle );
+	result.dy = norm * sin( angle );
+	return result;
+}
