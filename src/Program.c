@@ -2,6 +2,7 @@
 #include "Physics.h"
 #include "Network.h"
 #include "Output.h"
+#include "Menu.h"
 #include "Debug/Debug.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -189,13 +190,13 @@ int ArgumentClient( void ) {
 int ArgumentServer( void ) {
 	InitializeNetwork();
 	Connect( 1, NULL, NETWORK_STANDARD_SERVER_PORT );
-	time_t start = time( NULL );
-	time_t end = start + 10;
+	//time_t start = time( NULL );
+	//time_t end = start + 10;
 	while( /*time( NULL ) < end*/ 1 ) {
 		ProcessLobby();
 	}
 	DebugPrintF( "Start" );
-	NetworkStartGame( STANDARD_UDP_SERVER_PORT );
+	NetworkStartGame( NETWORK_STANDARD_DATA_PORT );
 	while( 1 ) {
 		ProcessInGame( NULL );
 	}
