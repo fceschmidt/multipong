@@ -54,7 +54,7 @@ static TTF_Font *	sans;
 
 static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
 
-static void TextInput( char *description, char *text );
+static void TextInput( const char *description, char *text );
 static int EventCheckMainMenu( int *marked, enum MenuState *menuState );
 static int EventCheckLobby( int *marked, enum MenuState *menuState );
 static int EventCheck( int *marked , enum MenuState *menuState );
@@ -81,7 +81,7 @@ TextInput
 Given an allocated text buffer and a description, prompts the user for text input and writes the input to the allocated text buffer using the SDL interface provided by GetSdlWindow() and GetSdlRenderer().
 ====================
 */
-static void TextInput( char *description, char *text ) {
+static void TextInput( const char *description, char *text ) {
 	int 			windowWidth, windowHeight;
 	int				done = 0;
 	char			array[40];
@@ -313,7 +313,9 @@ Calls the network component so that it creates a remote client.
 ====================
 */
 static void JoinGame( void ) {
-	Connect( 0, "127.0.0.1", NETWORK_STANDARD_SERVER_PORT );
+	char input[40] = "";
+	TextInput( "IP: ", input );
+	Connect( 0, input, NETWORK_STANDARD_SERVER_PORT );
 }
 
 /*
