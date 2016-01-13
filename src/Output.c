@@ -61,7 +61,6 @@ Renders the game state using information from the state variable.
 */
 int DisplayGameState( const struct GameState *state ) {
 	// TODO: Code for rendering!
-	DebugPrintF( "DisplayGameState was called!" );
 	/* This needs to do the following:
 	 * Use the predefined sdlWindow and sdlRenderer!
 	 * The GameState should not be changed, therefore it is const.
