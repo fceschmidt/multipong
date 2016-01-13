@@ -84,6 +84,7 @@ Given an allocated text buffer and a description, prompts the user for text inpu
 */
 static void TextInput( const char *description, char *text ) {
 	int 			windowWidth, windowHeight;
+	int				wt, ht;
 	int				done = 0;
 	char			array[40];
 	SDL_Rect		inputRect;
@@ -104,6 +105,9 @@ static void TextInput( const char *description, char *text ) {
 					if ( event.key.keysym.sym == SDLK_RETURN){
 						done = 1;
 					}
+					if ( event.key.keysym.sym == SDLK_BACKSPACE ) {
+						text[strlen( text ) - 1] = '\0';
+					}
 					break;
 				case SDL_TEXTINPUT:
 					/* Add new text onto the end of our text */
@@ -116,8 +120,9 @@ static void TextInput( const char *description, char *text ) {
 		strcpy( array, description );
 		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, strcat( array, text ), color );
 		SDL_Texture* message = SDL_CreateTextureFromSurface( sdlRenderer, surfaceMessage );
-		inputRect.w = 300;
-		inputRect.h = 70 ;
+		TTF_SizeText( sans, array, &wt, &ht );
+		inputRect.w = 70 * wt / ht;
+		inputRect.h = 70;
 		inputRect.x = windowWidth / 2 - inputRect.w / 2;
 		inputRect.y = windowHeight / 2 - inputRect.h / 2;
 		SDL_RenderCopy( sdlRenderer, message, NULL, &inputRect );
@@ -245,6 +250,7 @@ static int EventCheckLobby( int *marked, enum MenuState *menuState ) {
 				switch ( event.key.keysym.sym ){
 					case SDLK_BACKSPACE:
 						*menuState = MS_MAIN_MENU;
+						Disconnect();
 						break;
 					case SDLK_RETURN:
 						// Filter menu state client lobby
@@ -336,7 +342,7 @@ Renders all the buttons
 ==========================================================
 */
 static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
-	int 		w, h, i, n;
+	int 		w, h, i, n, wt, ht;
 	char *		playerNames[6];
 	SDL_Color 	white = {255, 255, 255};
 
@@ -370,11 +376,16 @@ static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer,
 		SDL_Texture* Message = SDL_CreateTextureFromSurface( renderer, surfaceMessage );
 
 		//printf( "%s :: %d \n", playerNames[i], n );
+		TTF_SizeText( sans, playerNames[i], &wt, &ht );
 		SDL_Rect Player_rect;
-		Player_rect.w = frameRect.w /2;
-		Player_rect.h = frameRect.h * 0.05;
+		Player_rect.h = frameRect.h * 0.1125f;
+		if( ( Player_rect.h * wt / ht ) > ( frameRect.w / 2 ) ) {
+			Player_rect.w = frameRect.w / 2;
+		} else {
+			Player_rect.w = Player_rect.h * wt / ht;
+		}
 		Player_rect.x = ( frameRect.w / 2 ) - Player_rect.w / 2;
-		Player_rect.y = ( i * Player_rect.h * 1.8f )  + Player_rect.h * 5;
+		Player_rect.y = ( i * Player_rect.h )  + h * 0.15f + frameRect.y;
 		SDL_RenderCopy( renderer, Message, NULL, &Player_rect );
 		SDL_DestroyTexture( Message );
 		SDL_FreeSurface( surfaceMessage );
