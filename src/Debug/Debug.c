@@ -18,21 +18,27 @@ int InitializeDebug() {
 }
 
 int DebugPrintF( const char *format , ... ){
-	va_list args;
-	time_t t;
+	va_list	args;
+	time_t 	t;
+	char *	formatString;
+	char	timeString[40];
+	
 	time( &t );
-	fprintf( fp, "%s", ctime( &t ) );
-	char *Formatstring;
-	Formatstring = malloc( strlen( format ) + 3 );
-	strcpy( Formatstring, format );
-	strcat( Formatstring, "\n" );
+	strcpy( timeString, ctime( &t ) );
+#ifdef __linux__
+	*strchr( timeString, '\n' ) = ' ';
+#endif
+	fprintf( fp, "%s", timeString );
+	formatString = malloc( strlen( format ) + 3 );
+	strcpy( formatString, format );
+	strcat( formatString, "\n" );
 
 	va_start( args, format );
-	vfprintf( fp, Formatstring, args );
+	vfprintf( fp, formatString, args );
 	va_end( args );
 
 	va_start( args, format );
-	vprintf( Formatstring, args );
+	vprintf( formatString, args );
 	va_end( args );
 
 	fflush( fp );
