@@ -432,6 +432,7 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 
 	// Check collision with the player paddle.
 	currentPosition = &state->players[segment].position;
+	// TODO: Do some calculations for intermediate states of the ball rather than this.
 	LineCircleCollision2D( ballCircle, GetPlayerLine( segment, state->numPlayers ), &isRight, &projection );
 	if( isRight ) {
 		// Normal displacement.
