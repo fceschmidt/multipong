@@ -26,8 +26,10 @@ struct Circle2D {
 
 // VARIABLES
 
-static registerHitHandler_t		rhHandler = NULL;
-static registerPointHandler_t	rpHandler = NULL;
+static registerHitHandler_t *	rhHandler = NULL;
+static registerPointHandler_t *	rpHandler = NULL;
+int								numRhHandler = 0;
+int								numRpHandler = 0;
 static int						lastHit = -1;
 static const unsigned char *	sdlKeyArray = NULL;
 static int						clockwiseKey = SDLK_LEFT;
@@ -265,7 +267,18 @@ Only one function can be registered at a time.
 ====================
 */
 void AtRegisterHit( registerHitHandler_t handler ) {
-	rhHandler = handler;
+	if( !rhHandler ) {
+		numRhHandler = 1;
+		rhHandler = malloc( numRhHandler * sizeof( registerHitHandler_t ) );
+		rhHandler[0] = handler;
+		return;
+	}
+	numRhHandler++;
+	registerHitHandler_t *newArray = malloc( numRhHandler * sizeof( registerHitHandler_t ) );
+	memcpy( newArray, rhHandler, ( numRhHandler - 1 ) * sizeof( registerHitHandler_t ) );
+	free( rhHandler );
+	newArray[numRhHandler - 1] = handler;
+	rhHandler = newArray;
 }
 
 /*
@@ -278,7 +291,12 @@ Registers when a ball gets hit by a paddle. Also calls the hit handler.
 void RegisterHit( int player ) {
 	lastHit = player;
 	if( rhHandler ) {
-		rhHandler( player );
+		int elem;
+		for( elem = 0; elem < numRhHandler; elem++ ) {
+			if( rhHandler[elem] ) {
+				( rhHandler[elem] )( player );
+			}
+		}
 	}
 }
 
@@ -290,7 +308,20 @@ Register a function which should be called when some player gets a point.
 ====================
 */
 void AtRegisterPoint( registerPointHandler_t handler ) {
-	rpHandler = handler;
+	// If there is no point handler, initialize the array
+	if( !rpHandler ) {
+		numRpHandler = 1;
+		rpHandler = malloc( numRpHandler * sizeof( registerPointHandler_t ) );
+		rpHandler[0] = handler;
+		return;
+	}
+	// Else, add the handler to the list.
+	numRpHandler++;
+	registerPointHandler_t *newArray = malloc( numRpHandler * sizeof( registerPointHandler_t ) );
+	memcpy( newArray, rpHandler, ( numRpHandler - 1 ) * sizeof( registerPointHandler_t ) );
+	free( rpHandler );
+	newArray[numRpHandler - 1] = handler;
+	rpHandler = newArray;
 }
 
 /*
@@ -306,7 +337,13 @@ static void RegisterPoint( struct GameState *state ) {
 		// Increment that player's score and call the event handler.
 		state->players[lastHit].score++;
 		if( rpHandler ) {
-			rpHandler( state, lastHit );
+			// Call all registered handlers for the RegisterPoint event.
+			int elem;
+			for( elem = 0; elem < numRpHandler; elem++ ) {
+				if( rpHandler[elem] ) {
+					( rpHandler[elem] )( state, lastHit );
+				}
+			}
 		}
 	}
 }
