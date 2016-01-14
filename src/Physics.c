@@ -124,7 +124,7 @@ static int GetPointSegment( struct Point2D point, int numPlayers ) {
 		return 0;
 	}
 
-	angle = GetVectorAngle2D( playerZeroStartVector, deltaVector );
+	angle = GetVectorAngle2D( deltaVector, playerZeroStartVector );
 	return ( int )( floor( angle / DEGREES_TO_RADIANS( 360.0f / numPlayers ) ) );
 }
 
