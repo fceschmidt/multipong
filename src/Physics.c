@@ -339,7 +339,7 @@ static void LineCircleCollision2D( struct Circle2D circle, struct Line2D line, i
 		struct Vector2D	offsetVector;
 		offsetVector.dx = line.vector.dy;
 		offsetVector.dy = -line.vector.dx;
-		offsetLine.vector = offsetVector;	// Quick fix!
+		offsetLine.vector = line.vector;
 		offsetLine.point = AddVectorToPoint2D( line.point, ScaleVector2D( offsetVector, circle.radius / VectorNorm2D( offsetVector ) ) );
 
 		// Now write the value to the variable.
