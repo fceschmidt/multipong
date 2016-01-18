@@ -874,21 +874,21 @@ static void SerializeGameStateGeometry( const struct GameState *state, char **bu
 
 	// Write the ball position.
 	modifier = ( union IntFloat * )&state->ball.position.x;
-	SDLNet_Write32( modifier->i,	&buffer[0] );
+	SDLNet_Write32( modifier->i,	&( *buffer )[0] );
 	modifier = ( union IntFloat * )&state->ball.position.y;
-	SDLNet_Write32( modifier->i,	&buffer[4] );
+	SDLNet_Write32( modifier->i,	&( *buffer )[4] );
 	
 	// Write the ball direction.
 	modifier = ( union IntFloat * )&state->ball.direction.dx;
-	SDLNet_Write32( modifier->i,	&buffer[8] );
+	SDLNet_Write32( modifier->i,	&( *buffer )[8] );
 	modifier = ( union IntFloat * )&state->ball.direction.dy;
-	SDLNet_Write32( modifier->i,	&buffer[12] );
+	SDLNet_Write32( modifier->i,	&( *buffer )[12] );
 
 	// Write the players' paddle positions.
 	int player;
 	for( player = 0; player < state->numPlayers; player++ ) {
 		modifier = ( union IntFloat * )&state->players[player].position;
-		SDLNet_Write32( modifier->i, &buffer[16 + 4 * player ] );
+		SDLNet_Write32( modifier->i, &( *buffer )[16 + 4 * player ] );
 	}
 
 	return;
