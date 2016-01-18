@@ -10,7 +10,7 @@
 #include "Debug/Debug.h"
 
 #define ASSET_FOLDER "Assets/"
-#define SANS_FONT_FILE ASSET_FOLDER "OpenSans-Regular.ttf"
+#define SANS_FONT_FILE ASSET_FOLDER "Skyrim font.ttf"
 
 /*
 ==========================================================
@@ -19,17 +19,16 @@ A struct for a button in the main menu
 
 ==========================================================
 */
-typedef struct {
+typedef struct Button {
 	char*    		text;
 	int      		x;
 	int      		y;
 	int      		height;
 	int		 		width;
-	int      		rValue;
-	int      		gValue;
-	int      		bValue;
 	SDL_Texture* 	texNotSelected;
 	SDL_Texture* 	texSelected;
+	struct Button*       succButton ;
+	struct Button*       predButton ;
 } Button_t;
 
 /*
@@ -51,10 +50,11 @@ static SDL_Texture *titleTexture;
 static SDL_Texture *frameTexture;
 static Button_t 	startButton;
 static char * 		username = "multipong\0";
+static int          side=2;
 static TTF_Font *	sans;
-
+static int          numWindowResolutions;
 static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
-
+static int  resolutionCounter ;
 static void TextInput( const char *description, char *text );
 static int EventCheckMainMenu( int *marked, enum MenuState *menuState );
 static int EventCheckLobby( int *marked, enum MenuState *menuState );
@@ -65,15 +65,120 @@ static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL
 static int Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer, int *marked , enum MenuState *menuState, Button_t *tabOrder );
 static void GoDown( int *marked );
 static void GoUp( int *marked );
-
+static int markedOptions  ;
+static int EventCheckOptions( enum MenuState *menuState );
+static int RenderOptions( SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) ;
+static Button_t OptionsOrder[2];
 static void HostGame( void );
 static void JoinGame( void );
 static void Options( void );
+static void ChooseSide ( void ) ;
+static void GoOptions ( void );
+static int VolumeMeter ;
+static int* CW ;
+static int* CH ;
 
 extern SDL_Window *GetSdlWindow( void );
 extern SDL_Renderer *GetSdlRenderer( void );
 
 void GetUserName( char* Name );
+
+
+static void GoOptions ( void ) {
+    if ( markedOptions != 0 ){
+        markedOptions = 0;
+	} else {
+		markedOptions = 1;
+	}
+}
+
+/*
+====================
+GetSide
+
+returns the side that was chosen. 1 = Sith 0 = Jedi
+====================
+*/
+int GetSide(){
+return side ;
+}
+
+
+
+static void ChooseSide ( void ){
+    int            windowWidth, windowHeight, choosing, done ;
+    SDL_Window *   sdlWindow = GetSdlWindow();
+    SDL_Renderer * sdlRenderer = GetSdlRenderer();
+    SDL_Event      event ;
+    SDL_Rect       evil_rect;
+    SDL_Rect       good_rect;
+    SDL_Surface*   temp;
+    SDL_Texture*   good;
+    SDL_Texture*   evil;
+    SDL_Texture*   goodSelected;
+    SDL_Texture*   evilSelected;
+    done = 0 ;
+    SDL_GetWindowSize( sdlWindow, &windowWidth, &windowHeight );
+    temp = IMG_Load( ASSET_FOLDER "BadChooseSide.png" );
+	evil = SDL_CreateTextureFromSurface( sdlRenderer, temp );
+    temp = IMG_Load( ASSET_FOLDER "GoodChooseSide.png" );
+	good = SDL_CreateTextureFromSurface( sdlRenderer, temp );
+    temp = IMG_Load( ASSET_FOLDER "BadChooseSide(Selected).png" );
+	evilSelected = SDL_CreateTextureFromSurface( sdlRenderer, temp );
+    temp = IMG_Load( ASSET_FOLDER "GoodChooseSide(Selected).png" );
+	goodSelected = SDL_CreateTextureFromSurface( sdlRenderer, temp );
+    while ( !done ) {
+		if ( SDL_PollEvent( &event ) ) {
+			if ( event.type == SDL_KEYDOWN ) {
+                switch (event.key.keysym.sym){
+                    case SDLK_LEFT:
+                        choosing = 1 ;
+                        break;
+                    case SDLK_RIGHT:
+                        choosing = 0 ;
+                        break;
+                    case SDLK_RETURN:
+                        side = choosing ;
+                        printf("Chose Side : %d\n",side);
+                        done = 1 ;
+                        break;
+
+                }
+
+
+			}
+		}
+
+    SDL_RenderClear( sdlRenderer ) ;
+    good_rect.x = windowWidth / 2 ;
+    good_rect.y = 0 ;
+    evil_rect.x = 0 ;
+    good_rect.w = windowWidth/2 ;
+    good_rect.h = windowHeight ;
+    evil_rect.y = 0 ;
+    evil_rect.w = windowWidth/2 ;
+    evil_rect.h = windowHeight ;
+
+
+    if (choosing == 1){
+            SDL_RenderCopy(sdlRenderer,good,NULL,&good_rect);
+            SDL_RenderCopy(sdlRenderer,evilSelected,NULL,&evil_rect);
+    } else {
+            SDL_RenderCopy(sdlRenderer,goodSelected,NULL,&good_rect);
+            SDL_RenderCopy(sdlRenderer,evil,NULL,&evil_rect);
+    }
+    SDL_RenderPresent( sdlRenderer );
+
+    }
+    SDL_FreeSurface(temp);
+    SDL_DestroyTexture(good);
+    SDL_DestroyTexture(evil);
+    SDL_DestroyTexture(goodSelected);
+    SDL_DestroyTexture(evilSelected);
+
+
+}
+
 
 /*
 ====================
@@ -83,8 +188,7 @@ Given an allocated text buffer and a description, prompts the user for text inpu
 ====================
 */
 static void TextInput( const char *description, char *text ) {
-	int 			windowWidth, windowHeight;
-	int				wt, ht;
+	int 			windowWidth, windowHeight,widthText,heightText;
 	int				done = 0;
 	char			array[40];
 	SDL_Rect		inputRect;
@@ -105,8 +209,8 @@ static void TextInput( const char *description, char *text ) {
 					if ( event.key.keysym.sym == SDLK_RETURN){
 						done = 1;
 					}
-					if ( event.key.keysym.sym == SDLK_BACKSPACE ) {
-						text[strlen( text ) - 1] = '\0';
+					if (event.key.keysym.sym == SDLK_BACKSPACE){
+                        text[strlen(text)-1] = '\0';
 					}
 					break;
 				case SDL_TEXTINPUT:
@@ -120,9 +224,9 @@ static void TextInput( const char *description, char *text ) {
 		strcpy( array, description );
 		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, strcat( array, text ), color );
 		SDL_Texture* message = SDL_CreateTextureFromSurface( sdlRenderer, surfaceMessage );
-		TTF_SizeText( sans, array, &wt, &ht );
-		inputRect.w = 70 * wt / ht;
-		inputRect.h = 70;
+		TTF_SizeText(sans,array,&widthText,&heightText);
+		inputRect.w = 70*widthText/heightText;
+		inputRect.h = 70 ;
 		inputRect.x = windowWidth / 2 - inputRect.w / 2;
 		inputRect.y = windowHeight / 2 - inputRect.h / 2;
 		SDL_RenderCopy( sdlRenderer, message, NULL, &inputRect );
@@ -144,32 +248,76 @@ Performs initialization tasks for the menu component.
 int InitializeMenu( void ) {
 	// Initialize SDL_ttf for font output.
 	DebugAssert( !TTF_Init() );
-	
+    side = 2;
 	// Initialize the username variable.
 	DebugAssert( username = malloc( sizeof( char ) * 30 ) );
 	username[0] = '\0';
 
 	return 0;
+
+}
+
+static int GetWindowResolutions (int *harray , int *warray){
+    int counter,oldw,oldh , display_count = 0, display_index = 0 , mode_index = 0,i,ch,cw;
+    SDL_DisplayMode mode1 = { SDL_PIXELFORMAT_UNKNOWN, 0, 0, 0, 0 };
+    display_count = SDL_GetNumDisplayModes(0);
+    ch = 0 ;
+    counter = 0 ;
+    cw = 0 ;
+    //printf("DisplayCounts : %d\n",display_count) ;
+    for (i = 0 ; i < display_count ; i++){
+    if (SDL_GetDisplayMode(display_index, i, &mode1) != 0) {
+        DebugPrintF("SDL_GetDisplayMode failed: %s", SDL_GetError());
+        return 1;
+    }
+    if ((oldw != mode1.w) || (oldh != mode1.h) ){
+    harray[ch] = mode1.h ;
+    warray[cw] = mode1.w ;
+    oldw = mode1.w ;
+    oldh = mode1.h ;
+    ch++ ;
+    cw++ ;
+    counter ++;
+    }
+  }
+  return counter ;
 }
 
 /*
 ====================
 ShowMenu
 
-Renders the menu on the window. This call blocks until the user decides to leave the application (return value PS_QUIT) or start a game (return value PS_GAME).
+Renders the menu on the window. This call blocks     until the user decides to leave the application (return value PS_QUIT) or start a game (return value PS_GAME).
 ====================
 */
 int ShowMenu( void ) {
 	enum ProgramState 	mode = PS_MENU;
 	int 				marked = 0;
 	enum MenuState		menuState = MS_MAIN_MENU;
+	int i ;
+	int a ;
+	int  display_count = SDL_GetNumDisplayModes(0);
 	SDL_Window *		sdlWindow = GetSdlWindow();
 	SDL_Renderer *		renderer = GetSdlRenderer();
-
+    CW = malloc( sizeof(int) * display_count );
+    CH = malloc( sizeof(int) * display_count );
 	DebugPrintF( "Running the menu." );
 	Button_t tabOrder[4];
+	while(strlen(username)<1){
+        TextInput( "Username: ", username );
+	}
+	if (side ==2){
+	ChooseSide() ;
+	}
 	InitializeMenuElements( tabOrder, renderer, sdlWindow );
-	TextInput( "Username: ", username );
+    numWindowResolutions = GetWindowResolutions(CH,CW);
+    DebugPrintF( "Got Avaible Display Resolutions" );
+
+	for ( i = 0 ; i < numWindowResolutions; i++){
+        DebugPrintF("Width: %d //Height: %d",CW[i],CH[i]);
+	}
+
+
 	while( 1 ) {
 		mode = Menu( sdlWindow, renderer, &marked, &menuState, tabOrder );
 		if( mode != PS_MENU ) {
@@ -222,7 +370,7 @@ static int EventCheckMainMenu( int *marked, enum MenuState *menuState ) {
 							JoinGame();
 							break;
 						case 2:
-							Options();
+							*menuState = MS_OPTIONS ;
 							break;
 						case 3:
 							return PS_QUIT;
@@ -250,7 +398,7 @@ static int EventCheckLobby( int *marked, enum MenuState *menuState ) {
 				switch ( event.key.keysym.sym ){
 					case SDLK_BACKSPACE:
 						*menuState = MS_MAIN_MENU;
-						Disconnect();
+						Disconnect() ;
 						break;
 					case SDLK_RETURN:
 						// Filter menu state client lobby
@@ -258,6 +406,59 @@ static int EventCheckLobby( int *marked, enum MenuState *menuState ) {
 							break;
 						}
 						return PS_GAME;
+					default:
+						break;
+				}
+		}
+	}
+	return PS_MENU;
+}
+
+static int EventCheckOptions( enum MenuState *menuState ) {
+	SDL_Event event;
+	while( SDL_PollEvent( &event ) ){
+		switch( event.type ){
+			case SDL_KEYDOWN:
+				switch ( event.key.keysym.sym ){
+					case SDLK_BACKSPACE:
+						*menuState = MS_MAIN_MENU;
+						break;
+					case SDLK_RETURN:
+						*menuState = MS_MAIN_MENU ;
+						break;
+                    case  SDLK_UP:
+                        GoOptions();
+                        break;
+                    case  SDLK_DOWN:
+                        GoOptions();
+                        break;
+                    case SDLK_RIGHT:
+                        if (markedOptions== 0){
+                           if (resolutionCounter == numWindowResolutions-1){
+                                resolutionCounter = 0 ;
+                           } else {
+                                resolutionCounter ++ ;
+                           }
+                        } else {
+                            if (VolumeMeter < 100){
+                                VolumeMeter ++ ;
+                            }
+
+                        }
+                        break;
+                    case SDLK_LEFT:
+                        if (markedOptions == 0){
+                            if (resolutionCounter == 0){
+                                resolutionCounter = numWindowResolutions-1 ;
+                           } else {
+                                resolutionCounter -- ;
+                           }
+                        } else {
+                            if (VolumeMeter > 0){
+                                VolumeMeter -- ;
+                            }
+                        }
+                        break;
 					default:
 						break;
 				}
@@ -283,7 +484,7 @@ static int EventCheck( int *marked, enum MenuState *menuState ) {
 			return EventCheckLobby( marked, menuState );
 			break;
 		case MS_OPTIONS:
-			// TODO: Implement this.
+			return EventCheckOptions(menuState);
 			break;
 	}
 	return PS_MENU;
@@ -358,7 +559,7 @@ static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer,
 	startRect.h = 0.2 *h;
 	startRect.x = w - startRect.w -30;
 	startRect.y = h - startRect.w -30;
-	
+
 	frameRect.h = h;
 	frameRect.w = w/2;
 	frameRect.x = w/2 - frameRect.w;
@@ -374,18 +575,17 @@ static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer,
 	for ( i = 0; i < n; i++ ){
 		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, playerNames[i], white );
 		SDL_Texture* Message = SDL_CreateTextureFromSurface( renderer, surfaceMessage );
-
+        TTF_SizeText( sans , playerNames[i] , &wt , &ht );
 		//printf( "%s :: %d \n", playerNames[i], n );
-		TTF_SizeText( sans, playerNames[i], &wt, &ht );
 		SDL_Rect Player_rect;
-		Player_rect.h = frameRect.h * 0.1125f;
-		if( ( Player_rect.h * wt / ht ) > ( frameRect.w / 2 ) ) {
-			Player_rect.w = frameRect.w / 2;
+		Player_rect.h = frameRect.h * 0.1125;
+		if ( (Player_rect.h * wt/ht) > ( frameRect.w / 2 ) ){
+            Player_rect.w = frameRect.w /2;
 		} else {
-			Player_rect.w = Player_rect.h * wt / ht;
+		Player_rect.w = Player_rect.h * wt/ht ;
 		}
 		Player_rect.x = ( frameRect.w / 2 ) - Player_rect.w / 2;
-		Player_rect.y = ( i * Player_rect.h )  + h * 0.15f + frameRect.y;
+		Player_rect.y = ( i * Player_rect.h * 1 )  + h*0.15 + frameRect.y;
 		SDL_RenderCopy( renderer, Message, NULL, &Player_rect );
 		SDL_DestroyTexture( Message );
 		SDL_FreeSurface( surfaceMessage );
@@ -398,6 +598,15 @@ static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer,
 	}
 	SDL_RenderPresent( renderer );
 	return 0;
+}
+
+
+static int RenderOptions( SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
+	int 		w, h, i;
+	SDL_Rect 	backgroundRect;
+	SDL_Rect 	buttonRect;
+	SDL_Rect 	titleRect;
+
 }
 
 static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
@@ -448,17 +657,13 @@ static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL
 			result = RenderLobby(tabOrder,marked,renderer,sdlWindow,menuState);
 			break;
 		case MS_OPTIONS:
-			// TODO: Implement this
+			result = RenderOptions(renderer,sdlWindow,menuState);
 			break;
 	}
 
 	return result;
 }
 
-// The button RGB values (useless?)
-#define BTN_R 255
-#define BTN_G 255
-#define BTN_B 255
 
 /*
 ==========================================================
@@ -467,14 +672,17 @@ Initializes the elements of the main menu.
 */
 static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow ) {
 	int w,h;
-	int r = rand() % 2;
+	//side = rand() % 2;
 
 	sans = TTF_OpenFont( SANS_FONT_FILE, 500 );
 	SDL_GetWindowSize( sdlWindow, &w, &h );
 	DebugPrintF( "SDL_GetWindowSize returned %d x %d pixels.", w, h );
 	SDL_Surface *temp;
 
-	if( r ) {
+
+
+
+	if( side == 1 ) {
 		temp = IMG_Load( ASSET_FOLDER "Evil/Start.png" );
 		startButton.texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Start(Disabled).png" );
@@ -501,6 +709,7 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 		tabOrder[3].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Exit(Unselected).png" );
 		tabOrder[3].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		DebugPrintF("Chosen Sith");
 	} else {
 		temp = IMG_Load( ASSET_FOLDER "Good/Start.png" );
 		startButton.texSelected = SDL_CreateTextureFromSurface( renderer, temp );
@@ -528,6 +737,7 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 		tabOrder[3].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Good/Exit(Unselected).png" );
 		tabOrder[3].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
+		DebugPrintF("Chosen Jedi");
 	}
 	DebugPrintF( "Loaded all menu images." );
 	DebugAssert( startButton.texSelected && startButton.texNotSelected && frameTexture && titleTexture && backgroundTexture );
