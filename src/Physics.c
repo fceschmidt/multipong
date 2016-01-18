@@ -10,7 +10,6 @@
 #define PADDLE_MAX_POS ( 1.0f - PADDLE_SIZE )
 #define PADDLE_MIN_POS ( 0.0f )
 #define DEFAULT_BALL_SPEED 1.0f		// DISTANCE PER SECOND
-#define DEFAULT_BALL_RADIUS 0.02f
 
 /*
 ==========================================================

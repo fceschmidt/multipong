@@ -4,6 +4,7 @@
 #include "Game.h"
 
 #define PADDLE_SIZE 0.1f
+#define DEFAULT_BALL_RADIUS 0.02f
 
 typedef void ( *registerHitHandler_t )( int player );
 typedef void ( *registerPointHandler_t )( const struct GameState *state, int player );

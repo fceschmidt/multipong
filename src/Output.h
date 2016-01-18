@@ -4,7 +4,7 @@
 #include "Game.h"
 
 int InitializeGraphics( void );
-int DisplayGameState( const struct GameState *state );
+int DisplayGameState( struct GameState *state );
 void CloseDisplay( void );
 
 #endif

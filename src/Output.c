@@ -12,7 +12,10 @@ int						outputFullscreen = 0;
 static SDL_Texture*     paddleTexture ;
 static SDL_Texture*     ballTexture ;
 static SDL_Texture*     backgroundTexture;
-static SDL_Surface*     temp ;
+static SDL_Surface*     temp;
+
+static void	CalculatePaddleCoordinates(  struct GameState *state, int playerId, struct Point2D *start, struct Point2D *end );
+static void CalculateBallCoordinates( struct Ball ball, struct Point2D *point, int *radius );
 
 // Functions
 SDL_Window *GetSdlWindow( void );
@@ -26,7 +29,6 @@ Creates the window and renderer.
 ====================
 */
 int InitializeGraphics( void ) {
-    outputFullscreen = 1 ;
 	DebugAssert( !SDL_Init( SDL_INIT_VIDEO ) );
 	sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, outputFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
 	DebugAssert( sdlWindow );
@@ -79,11 +81,11 @@ DisplayGameState
 Renders the game state using information from the state variable.
 ====================
 */
-int DisplayGameState( const struct GameState *state ) {
+int DisplayGameState( struct GameState *state ) {
 	// TODO: Code for rendering!
 	/* This needs to do the following:
 	 * Use the predefined sdlWindow and sdlRenderer!
-	 * The GameState should not be changed, therefore it is const.
+	 * The GameState should not be changed, therefore it is .
 	 * For rendering, have a look at the functions in Menu.c!
 	 * 		I know you dislike them for the style, but they will be
 	 *		refactored later and already work.
@@ -117,34 +119,32 @@ int DisplayGameState( const struct GameState *state ) {
 	 * P.S.: You can test this function for ten seconds by running the program, going into Host game mode and pressing enter in the lobby!
 	*/
 
-    int            windowWidth, windowHeight,i ;
-    SDL_Rect       ball_rect;
-    SDL_GetWindowSize( sdlWindow, &windowHeight, &windowHeight );
-    struct Point2D        paddleStart ;
-    struct Point2D        paddleEnd ;
-    struct Point2D        pointBall ;
-    int            radius    ;
+    int            	windowWidth, windowHeight, i;
+    SDL_Rect       	ball_rect;
+    struct Point2D  paddleStart;
+    struct Point2D  paddleEnd;
+    struct Point2D  pointBall;
+    int				radius;
 
-    //Set all corresponding Rect Values
-    //calculateBallCoordinates(state->ball,&pointBall,&radius) ;
+    SDL_GetWindowSize( sdlWindow, &windowHeight, &windowHeight );
+    
+	//Set all corresponding Rect Values
+    CalculateBallCoordinates( state->ball, &pointBall, &radius );
     ball_rect.w = radius*2 ;
     ball_rect.h = radius*2 ;
     ball_rect.x = (pointBall.x - radius) ;
     ball_rect.y = (pointBall.y - radius) ;
 
-
-
     //copy everything in the renderer
 	SDL_RenderClear( sdlRenderer );
 
-
-
-
 	for (i = 0 ; i < state->numPlayers ; i++){
         SDL_SetRenderDrawColor( sdlRenderer, 0x00, 0x00, 0xFF, 0xFF );
-       // calculatePaddleCoordinates (state,&paddleStart,&paddleEnd);
+        CalculatePaddleCoordinates( state, i, &paddleStart, &paddleEnd );
         SDL_RenderDrawLine( sdlRenderer, paddleStart.x, paddleStart.y, paddleEnd.x, paddleEnd.y );
 	}
+
+	SDL_SetRenderDrawColor( sdlRenderer, 0x00, 0x00, 0x00, 0x00 );
 
 	SDL_RenderCopy( sdlRenderer, ballTexture, NULL, &ball_rect );
 	SDL_RenderPresent( sdlRenderer );
@@ -162,4 +162,85 @@ Gets rid of the window and renderer.
 void CloseDisplay( void ) {
 	SDL_DestroyRenderer( sdlRenderer );
 	SDL_DestroyWindow( sdlWindow );
+}
+
+/*
+====================
+GetScreenRectangle
+
+Returns the biggest possible square in the center of the screen.
+====================
+*/
+static void GetScreenSquare( struct Line2D *rectangle ) {
+	DebugAssert( rectangle );
+
+	int sWidth, sHeight;
+	SDL_GetWindowSize( sdlWindow, &sWidth, &sHeight );
+
+	if( sWidth < sHeight ) {
+		rectangle->point.x = 0.0f;
+		rectangle->point.y = ( sWidth - sHeight ) / 2;
+		rectangle->vector.dx = sWidth;
+		rectangle->vector.dy = sWidth;
+	} else {
+		rectangle->point.x = ( sHeight - sWidth ) / 2;
+		rectangle->point.y = 0.0f;
+		rectangle->vector.dx = sHeight;
+		rectangle->vector.dy = sHeight;
+	}
+
+	return;
+}
+
+/*
+====================
+GameToScreenCoordinates
+
+Calculates on-screen coordinates from a set of game coordinates.
+====================
+*/
+static struct Point2D GameToScreenCoordinates( struct Point2D point ) {
+	struct Point2D result;
+	struct Line2D rect;
+
+	GetScreenSquare( &rect );
+	result.x = rect.point.x + rect.vector.dx * ( point.x + 1.0f ) / 2.0f;
+	result.y = rect.point.y + rect.vector.dy * ( -point.y + 1.0f ) / 2.0f;
+
+	return result;
+}
+
+/*
+====================
+CalculatePaddleCoordinate
+
+Given a game state
+====================
+*/
+static void	CalculatePaddleCoordinates( struct GameState *state, int playerId, struct Point2D *start, struct Point2D *end ) {
+	if( start ) {
+		*start = GameToScreenCoordinates( AddVectorToPoint2D( GetPlayerLine( playerId, state->numPlayers ).point, ScaleVector2D( GetPlayerLine( playerId, state->numPlayers ).vector, state->players[playerId].position ) ) );
+	}
+	if( end ) {
+		*end = GameToScreenCoordinates( AddVectorToPoint2D( GetPlayerLine( playerId, state->numPlayers ).point, ScaleVector2D( GetPlayerLine( playerId, state->numPlayers ).vector, state->players[playerId].position + PADDLE_SIZE ) ) );
+	}
+}
+
+/*
+====================
+CalculateBallCoordinates
+
+Given a ball, returns the on-screen point of the ball and its radius.
+====================
+*/
+static void CalculateBallCoordinates( struct Ball ball, struct Point2D *point, int *radius ) {
+	if( point ) {
+		*point = GameToScreenCoordinates( ball.position );
+	}
+	if( radius ) {
+		struct Line2D rect;
+
+		GetScreenSquare( &rect );
+		*radius = ( int )( DEFAULT_BALL_RADIUS * rect.vector.dx / 2.0f );
+	}
 }
