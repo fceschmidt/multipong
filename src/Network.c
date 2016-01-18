@@ -840,7 +840,8 @@ static void DeserializeGameStateGeometry( struct GameState *state, const char *b
 	int numPlayers = ( bufferLength - 16 ) / 4;
 	int player;
 	for( player = 0; player < numPlayers; player++ ) {
-		state->players[player].position = SDLNet_Read32( &buffer[16 + 4 * player] );
+		modifier = ( union IntFloat * )&state->players[player].position;
+		modifier->i = SDLNet_Read32( &buffer[16 + 4 * player] );
 	}
 
 	return;
@@ -946,8 +947,6 @@ static void ServerSendGameStateGeometry( const struct GameState *state ) {
 			SDLNet_TCP_Send( clients[client].dataSocket, bytes, numBytes );
 		}
 	}
-
-	DebugPrintF( "Sent geometry. Ball %f %f", state->ball.position.x, state->ball.position.y );
 }
 
 /*
@@ -1063,8 +1062,6 @@ static void ClientUpdateStateGeometry( struct GameState *state ) {
 			state->players[player].position = newState.players[player].position;
 		}
 	}
-
-	DebugPrintF( "Updated geometry. Ball %f %f", newState.ball.position.x, newState.ball.position.y );
 
 	// And we're done!
 	return;
