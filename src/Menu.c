@@ -79,8 +79,9 @@ static void Options( void );
 static void ChooseSide ( void ) ;
 static void GoOptions ( void );
 
-extern SDL_Window *GetSdlWindow( void );
-extern SDL_Renderer *GetSdlRenderer( void );
+extern SDL_Window *			GetSdlWindow( void );
+extern SDL_Renderer *		GetSdlRenderer( void );
+extern const volatile int	clientGameStarted;
 
 void GetUserName( char* Name );
 
@@ -391,6 +392,9 @@ Performs the input event check for the menu states MS_HOST_GAME and MS_JOIN_GAME
 ====================
 */
 static int EventCheckLobby( int *marked, enum MenuState *menuState ) {
+	if( clientGameStarted ) {
+		return PS_GAME;
+	}
 	SDL_Event event;
 	while( SDL_PollEvent( &event ) ){
 		switch( event.type ){

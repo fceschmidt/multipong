@@ -51,10 +51,11 @@ int RunGame( void ) {
 	// For time limitation...
 	time_t start = time( NULL );
 
-	while( time( NULL ) < start + 10 ) {
+	while( 1 ) {
 		ProcessPhysics( &currentState, ( float )( SDL_GetTicks() - lastFrame ) / 1000.0f );
 		lastFrame = SDL_GetTicks();
 		ProcessInGame( &currentState );
+		DebugPrintF( "Displaying" );
 		DisplayGameState( &currentState );
 		// TODO: Remove this once the state is actually displayed..
 		SDL_Delay( 10 );

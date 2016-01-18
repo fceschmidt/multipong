@@ -32,8 +32,8 @@ int								numRhHandler = 0;
 int								numRpHandler = 0;
 static int						lastHit = -1;
 static const unsigned char *	sdlKeyArray = NULL;
-static int						clockwiseKey = SDLK_LEFT;
-static int						counterclockwiseKey = SDLK_RIGHT;
+static const int				clockwiseKey = SDL_SCANCODE_LEFT;
+static const int				counterclockwiseKey = SDL_SCANCODE_RIGHT;
 static float					userPaddleSpeed = 0.0f;
 
 // FUNCTIONS

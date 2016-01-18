@@ -81,6 +81,7 @@ static SDLNet_SocketSet 		dataSocketSet = NULL;	// The associated socket set for
 static struct NetworkClientInfo clients[6];				// 6 players maximum, eh?!
 static int						numClients = 0;			// The amount of filled in elements of the clients array
 static int						thisClient = -1;		// The index of this client in the clients array
+int								clientGameStarted = 0;	// Is 1 only if the network component is in client mode and the server has started the game
 
 // FUNCTIONS
 
@@ -117,7 +118,7 @@ static int	ClientProcessLobby( void );
 static int	ClientProcessLobbyIncomingPackets( char *bytes, int numBytes );
 static void	ClientHandleClientJoin( int playerId, char *name );
 static void	ClientHandleServerYourId( int newId );
-static void	ClientHandleServerStartGame();
+static void	ClientHandleServerStartGame( void );
 static void ClientSendStateGeometry( const struct GameState *state );
 static void ClientUpdateStateGeometry( struct GameState *state );
 static void ClientUpdateStateInformation( struct GameState *state );
@@ -592,9 +593,8 @@ static int ClientProcessLobbyIncomingPackets( char *bytes, int numBytes ) {
 				ClientHandleServerYourId( newId );
 				break;
 			case PID_START_GAME:
-				port = SDLNet_Read32( &bytes[bReadPosition + 8] );
-				DebugPrintF( "The game starts now on port %d.", port );
-				ClientHandleServerStartGame( port );
+				DebugPrintF( "The game starts now on port." );
+				ClientHandleServerStartGame();
 				return GAME_START;
 				break;
 		}
@@ -676,8 +676,10 @@ static void ClientHandleServerStartGame() {
 	IPaddress *address = SDLNet_TCP_GetPeerAddress( activeSocket );
 	DebugAssert( address );
 	
-	address->port = NETWORK_STANDARD_DATA_PORT;
+	SDLNet_Write16( NETWORK_STANDARD_DATA_PORT, &address->port );
 	ConnectRemoteServerIp( &dataSocket, &dataSocketSet, address );
+
+	clientGameStarted = 1;
 }
 
 /*
@@ -757,6 +759,9 @@ static int AcceptAllDataClients( void ) {
 		if( newClient ) {
 			newInfo = SDLNet_TCP_GetPeerAddress( newClient );
 			for( i = 0; i < numClients; i++ ) {
+				if( !clients[i].socket ) {
+					continue;
+				}
 				info = SDLNet_TCP_GetPeerAddress( clients[i].socket );
 				if( !info ) {
 					continue;
@@ -784,6 +789,9 @@ For use by the server only, broadcasts the packet that starts the game.
 ====================
 */
 int NetworkStartGame( uint16_t udpPort ) {
+	if( !isServer ) {
+		return -1;
+	}
 	// Prepare data socket
 	ConnectLocalServer( &dataSocket, NETWORK_STANDARD_DATA_PORT );
 	
@@ -902,6 +910,9 @@ static void ServerUpdateClientGeometry( struct GameState *state ) {
 
 	for( player = 0; player < state->numPlayers; player++ ) {
 		// Receive and check length
+		if( !clients[player].dataSocketSet ) {
+			continue;
+		}
 		numBytes = NonBlockingRecv( clients[player].dataSocket, clients[player].dataSocketSet, bytes, sizeof( bytes ) );
 		if( numBytes <= 0 ) {
 			continue;
