@@ -418,6 +418,8 @@ static void DisplaceUserPaddle( struct GameState *state, float deltaSeconds ) {
 	float imminentDisplacement = userPaddleSpeed * deltaSeconds;
 	float *currentPosition = &state->players[ThisClient()].position;
 	*currentPosition += imminentDisplacement;
+	// Some braking
+	userPaddleSpeed -= userPaddleSpeed * deltaSeconds;
 	// Check for borders!
 	if( *currentPosition > PADDLE_MAX_POS ) {
 		*currentPosition = PADDLE_MAX_POS;
