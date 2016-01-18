@@ -131,7 +131,7 @@ static void TextInput( const char *description, char *text ) {
 		SDL_FreeSurface( surfaceMessage );
 	}
 
-	DebugPrintF( "The user input was \"%s\".", username );
+	DebugPrintF( "The user input was \"%s\".", text );
 }
 
 /*
