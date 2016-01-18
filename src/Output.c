@@ -179,11 +179,11 @@ static void GetScreenSquare( struct Line2D *rectangle ) {
 
 	if( sWidth < sHeight ) {
 		rectangle->point.x = 0.0f;
-		rectangle->point.y = ( sWidth - sHeight ) / 2;
+		rectangle->point.y = ( sHeight - sWidth ) / 2;
 		rectangle->vector.dx = sWidth;
 		rectangle->vector.dy = sWidth;
 	} else {
-		rectangle->point.x = ( sHeight - sWidth ) / 2;
+		rectangle->point.x = ( sWidth - sHeight ) / 2;
 		rectangle->point.y = 0.0f;
 		rectangle->vector.dx = sHeight;
 		rectangle->vector.dy = sHeight;

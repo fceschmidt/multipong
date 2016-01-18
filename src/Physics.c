@@ -565,7 +565,7 @@ static void ResetBall( struct Ball *ball ) {
 	ball->position.y = 0.0f;
 
 	// New random movement vector.
-	ball->direction = VectorFromPolar2D( DEGREES_TO_RADIANS( rand() % 360 ), DEFAULT_BALL_SPEED );
+	ball->direction = VectorFromPolar2D( DEGREES_TO_RADIANS( ( ( rand() % 2 ) * 180 ) + ( rand() % 90 - 45 ) ), DEFAULT_BALL_SPEED );
 }
 
 

@@ -874,9 +874,9 @@ static void SerializeGameStateGeometry( const struct GameState *state, char **bu
 
 	// Write the ball position.
 	modifier = ( union IntFloat * )&state->ball.position.x;
-	SDLNet_Write32( modifier->i,		&buffer[0] );
+	SDLNet_Write32( modifier->i,	&buffer[0] );
 	modifier = ( union IntFloat * )&state->ball.position.y;
-	SDLNet_Write32( modifier->i,		&buffer[4] );
+	SDLNet_Write32( modifier->i,	&buffer[4] );
 	
 	// Write the ball direction.
 	modifier = ( union IntFloat * )&state->ball.direction.dx;
@@ -910,6 +910,9 @@ static void ServerUpdateClientGeometry( struct GameState *state ) {
 
 	for( player = 0; player < state->numPlayers; player++ ) {
 		// Receive and check length
+		if( player == thisClient ) {
+			continue;
+		}
 		if( !clients[player].dataSocketSet ) {
 			continue;
 		}
@@ -943,6 +946,8 @@ static void ServerSendGameStateGeometry( const struct GameState *state ) {
 			SDLNet_TCP_Send( clients[client].dataSocket, bytes, numBytes );
 		}
 	}
+
+	DebugPrintF( "Sent geometry. Ball %f %f", state->ball.position.x, state->ball.position.y );
 }
 
 /*
@@ -1045,7 +1050,7 @@ static void ClientUpdateStateGeometry( struct GameState *state ) {
 
 	// Find the last actual GameState in the buffer.
 	int chunkLength = 16 + 4 * state->numPlayers;
-	int lastChunkIndex = length - chunkLength;
+	int lastChunkIndex = 0/*length - chunkLength*/;
 
 	// Deserialize that one
 	DeserializeGameStateGeometry( &newState, &buffer[lastChunkIndex], chunkLength );
@@ -1058,6 +1063,8 @@ static void ClientUpdateStateGeometry( struct GameState *state ) {
 			state->players[player].position = newState.players[player].position;
 		}
 	}
+
+	DebugPrintF( "Updated geometry. Ball %f %f", newState.ball.position.x, newState.ball.position.y );
 
 	// And we're done!
 	return;
@@ -1163,3 +1170,4 @@ Returns the index of this client in the GameState player array.
 int ThisClient( void ) {
 	return thisClient;
 }
+
