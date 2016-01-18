@@ -10,7 +10,7 @@
 #include "Debug/Debug.h"
 
 #define ASSET_FOLDER "Assets/"
-#define SANS_FONT_FILE ASSET_FOLDER "Skyrim font.ttf"
+#define SANS_FONT_FILE ASSET_FOLDER "OpenSans-Regular.ttf"
 
 /*
 ==========================================================
@@ -53,6 +53,12 @@ static char * 		username = "multipong\0";
 static int          side=2;
 static TTF_Font *	sans;
 static int          numWindowResolutions;
+static int 			VolumeMeter;
+static int* 		CW;
+static int* 		CH;
+//static Button_t		OptionsOrder[2];
+static int 			markedOptions;
+
 static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
 static int  resolutionCounter ;
 static void TextInput( const char *description, char *text );
@@ -65,18 +71,13 @@ static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL
 static int Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer, int *marked , enum MenuState *menuState, Button_t *tabOrder );
 static void GoDown( int *marked );
 static void GoUp( int *marked );
-static int markedOptions  ;
 static int EventCheckOptions( enum MenuState *menuState );
 static int RenderOptions( SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) ;
-static Button_t OptionsOrder[2];
 static void HostGame( void );
 static void JoinGame( void );
 static void Options( void );
 static void ChooseSide ( void ) ;
 static void GoOptions ( void );
-static int VolumeMeter ;
-static int* CW ;
-static int* CH ;
 
 extern SDL_Window *GetSdlWindow( void );
 extern SDL_Renderer *GetSdlRenderer( void );
@@ -106,7 +107,7 @@ return side ;
 
 
 static void ChooseSide ( void ){
-    int            windowWidth, windowHeight, choosing, done ;
+    int            windowWidth, windowHeight, choosing = 0, done ;
     SDL_Window *   sdlWindow = GetSdlWindow();
     SDL_Renderer * sdlRenderer = GetSdlRenderer();
     SDL_Event      event ;
@@ -149,26 +150,24 @@ static void ChooseSide ( void ){
 			}
 		}
 
-    SDL_RenderClear( sdlRenderer ) ;
-    good_rect.x = windowWidth / 2 ;
-    good_rect.y = 0 ;
-    evil_rect.x = 0 ;
-    good_rect.w = windowWidth/2 ;
-    good_rect.h = windowHeight ;
-    evil_rect.y = 0 ;
-    evil_rect.w = windowWidth/2 ;
-    evil_rect.h = windowHeight ;
+    	SDL_RenderClear( sdlRenderer ) ;
+	    good_rect.x = windowWidth / 2 ;
+	    good_rect.y = 0 ;
+	    evil_rect.x = 0 ;
+	    good_rect.w = windowWidth/2 ;
+	    good_rect.h = windowHeight ;
+	    evil_rect.y = 0 ;
+	    evil_rect.w = windowWidth/2 ;
+	    evil_rect.h = windowHeight ;
 
-
-    if (choosing == 1){
-            SDL_RenderCopy(sdlRenderer,good,NULL,&good_rect);
-            SDL_RenderCopy(sdlRenderer,evilSelected,NULL,&evil_rect);
-    } else {
-            SDL_RenderCopy(sdlRenderer,goodSelected,NULL,&good_rect);
-            SDL_RenderCopy(sdlRenderer,evil,NULL,&evil_rect);
-    }
-    SDL_RenderPresent( sdlRenderer );
-
+		if (choosing == 1){
+        	SDL_RenderCopy(sdlRenderer,good,NULL,&good_rect);
+	        SDL_RenderCopy(sdlRenderer,evilSelected,NULL,&evil_rect);
+	    } else {
+	        SDL_RenderCopy(sdlRenderer,goodSelected,NULL,&good_rect);
+	        SDL_RenderCopy(sdlRenderer,evil,NULL,&evil_rect);
+	    }
+		SDL_RenderPresent( sdlRenderer );
     }
     SDL_FreeSurface(temp);
     SDL_DestroyTexture(good);
@@ -257,28 +256,30 @@ int InitializeMenu( void ) {
 
 }
 
-static int GetWindowResolutions (int *harray , int *warray){
-    int counter,oldw,oldh , display_count = 0, display_index = 0 , mode_index = 0,i,ch,cw;
+static int GetWindowResolutions( int *harray , int *warray ) {
+    int counter, oldw, oldh, display_count = 0, display_index = 0, i, ch, cw;
     SDL_DisplayMode mode1 = { SDL_PIXELFORMAT_UNKNOWN, 0, 0, 0, 0 };
     display_count = SDL_GetNumDisplayModes(0);
-    ch = 0 ;
-    counter = 0 ;
-    cw = 0 ;
+    ch = 0;
+    counter = 0;
+    cw = 0;
+	oldw = 0;
+	oldh = 0;
     //printf("DisplayCounts : %d\n",display_count) ;
     for (i = 0 ; i < display_count ; i++){
-    if (SDL_GetDisplayMode(display_index, i, &mode1) != 0) {
-        DebugPrintF("SDL_GetDisplayMode failed: %s", SDL_GetError());
-        return 1;
-    }
-    if ((oldw != mode1.w) || (oldh != mode1.h) ){
-    harray[ch] = mode1.h ;
-    warray[cw] = mode1.w ;
-    oldw = mode1.w ;
-    oldh = mode1.h ;
-    ch++ ;
-    cw++ ;
-    counter ++;
-    }
+    	if (SDL_GetDisplayMode(display_index, i, &mode1) != 0) {
+	        DebugPrintF("SDL_GetDisplayMode failed: %s", SDL_GetError());
+	        return 1;
+	    }
+	    if ((oldw != mode1.w) || (oldh != mode1.h) ){
+	    	harray[ch] = mode1.h ;
+		    warray[cw] = mode1.w ;
+		    oldw = mode1.w ;
+		    oldh = mode1.h ;
+		    ch++ ;
+		    cw++ ;
+		    counter ++;
+    	}
   }
   return counter ;
 }
@@ -295,7 +296,6 @@ int ShowMenu( void ) {
 	int 				marked = 0;
 	enum MenuState		menuState = MS_MAIN_MENU;
 	int i ;
-	int a ;
 	int  display_count = SDL_GetNumDisplayModes(0);
 	SDL_Window *		sdlWindow = GetSdlWindow();
 	SDL_Renderer *		renderer = GetSdlRenderer();
@@ -602,11 +602,11 @@ static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer,
 
 
 static int RenderOptions( SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
-	int 		w, h, i;
-	SDL_Rect 	backgroundRect;
-	SDL_Rect 	buttonRect;
-	SDL_Rect 	titleRect;
-
+	//int 		w, h, i;
+	//SDL_Rect 	backgroundRect;
+	//SDL_Rect 	buttonRect;
+	//SDL_Rect 	titleRect;
+	return 0;
 }
 
 static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
