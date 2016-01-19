@@ -4,6 +4,7 @@
 #include <string.h>
 #include "Audio.h"
 #include "Physics.h"
+#include "Debug/Debug.h"
 
 #define PATH "Assets/Audio/"
 
@@ -15,19 +16,32 @@ Initializes SDL_mixer
 ====================
 */
 void InitializeAudio() {
-	if( SDL_Init( SDL_INIT_AUDIO ) < 0 )
-		printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
-	if( Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 )
-		printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );	
+	if( SDL_Init( SDL_INIT_AUDIO ) < 0 ) {
+		DebugPrintF( "SDL_mixer could not initialize! SDL_mixer Error: %s", Mix_GetError() );
+	}
+	
+	if( Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 ) {
+		DebugPrintF( "SDL_mixer could not initialize! SDL_mixer Error: %s", Mix_GetError() );	
+	}
+	
 	Mix_Music *theme = NULL;
-	theme = Mix_LoadMUS( PATH "MainTheme.wav" );
-	if( !theme )
-		printf( "Mix_LoadMUS( \"Musik\" ): %s\n", Mix_GetError() );
-	if( Mix_PlayMusic( theme, -1 ) < 0 )
-		printf( "Mix_PlayMusic: %s\n", Mix_GetError() );
+	theme = Mix_LoadMUS( PATH "MainTheme.ogg" );
+	
+	if( !theme ) {
+		DebugPrintF( "Mix_LoadMUS( \"Musik\" ): %s", Mix_GetError() );
+		theme = Mix_LoadMUS( PATH "MainTheme.wav" );
+		if( !theme ) {
+			DebugPrintF( "Mix_LoadMUS( \"Musik\" ): %s", Mix_GetError() );
+		}
+	}
+
+	if( Mix_PlayMusic( theme, -1 ) < 0 ) {
+		DebugPrintF( "Mix_PlayMusic: %s", Mix_GetError() );
+	}
+	
 	AtRegisterHit( PlaySoundHit );
 	AtRegisterPoint( PlaySoundPoint );
-} //TODO: Implement into Program and tie into debugging?
+}
 
 /*
 ====================
