@@ -50,7 +50,8 @@ Creates the window and renderer.
 */
 int InitializeGraphics( void ) {
 	DebugAssert( !SDL_Init( SDL_INIT_VIDEO ) );
-	sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, outputFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
+	//outputFullscreen = 1 ;
+	sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 700, outputFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
 	DebugAssert( sdlWindow );
 	SDL_ShowCursor( SDL_DISABLE );
 	sdlRenderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
@@ -71,6 +72,13 @@ int InitializeGraphics( void ) {
 	return !( sdlWindow && sdlRenderer );
 }
 
+/*
+====================
+SetWindowResolution
+
+Sets the windows resolution. You have to call GetRenderer and GetWindow afterwards.
+====================
+*/
 void SetWindowResolution (int  Width , int Height , int Fullscreen) {
     SDL_DestroyWindow(sdlWindow);
     SDL_DestroyRenderer(sdlRenderer);
