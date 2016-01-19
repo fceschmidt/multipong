@@ -5,11 +5,11 @@
 #include "Debug/Debug.h"
 
 #define DEGREES_TO_RADIANS( x ) ( ( x ) * M_PI / 180.0f )
-#define PADDLE_ACCELERATION 2.0f	// DISTANCE PER SECOND SQUARED
-#define PADDLE_MAX_SPEED 1.0f		// DISTANCE PER SECOND
+#define PADDLE_ACCELERATION 4.0f	// DISTANCE PER SECOND SQUARED
+#define PADDLE_MAX_SPEED 1.5f		// DISTANCE PER SECOND
 #define PADDLE_MAX_POS ( 1.0f - PADDLE_SIZE )
 #define PADDLE_MIN_POS ( 0.0f )
-#define DEFAULT_BALL_SPEED 0.25f		// DISTANCE PER SECOND
+#define DEFAULT_BALL_SPEED 1.0f		// DISTANCE PER SECOND
 
 /*
 ==========================================================
@@ -424,15 +424,15 @@ static void DisplaceUserPaddle( struct GameState *state, float deltaSeconds ) {
 	}
 	*currentPosition += imminentDisplacement;
 	// Some braking
-	userPaddleSpeed -= userPaddleSpeed * deltaSeconds;
+	userPaddleSpeed -= ( userPaddleSpeed / PADDLE_MAX_SPEED ) * 2.0f * deltaSeconds;
 	// Check for borders!
 	if( *currentPosition > PADDLE_MAX_POS ) {
 		*currentPosition = PADDLE_MAX_POS;
-		userPaddleSpeed *= -1.0f;
+		userPaddleSpeed *= -0.5f;
 	}
 	if( *currentPosition < PADDLE_MIN_POS ) {
 		*currentPosition = PADDLE_MIN_POS;
-		userPaddleSpeed *= -1.0f;
+		userPaddleSpeed *= -0.5f;
 	}
 }
 
