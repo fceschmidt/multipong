@@ -110,7 +110,7 @@ static int GetPointSegment( struct Point2D point, int numPlayers ) {
 	 * on the left half belongs to player 0, everything else
 	 * is player 1 terrain */
 	if( numPlayers == 2 ) {
-		return point.y <= 0.0f ? 0 : 1;
+		return point.x <= 0.0f ? 0 : 1;
 	}
 
 	/* For the rest of the cases, simply start from the first player's clockwise left point
