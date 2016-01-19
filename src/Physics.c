@@ -557,6 +557,10 @@ static void	HandleInput( float deltaSeconds ) {
 			userPaddleSpeed = -PADDLE_MAX_SPEED;
 		}
 	}
+
+	if( sdlKeyArray[SDL_SCANCODE_ESCAPE] ) {
+		exit( 0 );
+	}
 }
 
 /*
