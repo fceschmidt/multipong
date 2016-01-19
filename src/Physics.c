@@ -10,6 +10,7 @@
 #define PADDLE_MAX_POS ( 1.0f - PADDLE_SIZE )
 #define PADDLE_MIN_POS ( 0.0f )
 #define DEFAULT_BALL_SPEED 1.0f		// DISTANCE PER SECOND
+#define PADDLE_TOLERANCE ( DEFAULT_BALL_RADIUS / 2.0f )
 
 /*
 ==========================================================
@@ -48,7 +49,7 @@ static void				HandleInput( float deltaSeconds );
 static void				DisplaceUserPaddle( struct GameState *state, float deltaSeconds );
 static void				BallLogic( struct GameState *state, float deltaSeconds );
 static void				RegisterPoint( struct GameState *state );
-static void				ResetBall( struct Ball *ball );
+static void				ResetBall( struct GameState *state );
 static struct Vector2D	VectorFromPolar2D( float angle, float norm );
 
 // Imported from the network component.
@@ -484,12 +485,12 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 		ball->position = ballCircle.point;
 	} else {
 		// Check if the paddle hits the ball!
-		if( projection >= *currentPosition && projection <= *currentPosition + PADDLE_SIZE ) {
+		if( projection >= *currentPosition - PADDLE_TOLERANCE && projection <= *currentPosition + PADDLE_SIZE + PADDLE_TOLERANCE ) {
 			RegisterHit( segment );
 			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ).vector, ball->direction );
 		} else {
 			RegisterPoint( state );
-			ResetBall( &state->ball );
+			ResetBall( state );
 		}
 	}
 }
@@ -565,16 +566,30 @@ ResetBall
 Resets the ball to the center of the pitch and assigns a new movement vector.
 ====================
 */
-static void ResetBall( struct Ball *ball ) {
+static void ResetBall( struct GameState *state ) {
 	// Reset lastHit so that nobody gets a point until anybody actually hits the ball.
 	lastHit = -1;
 
 	// Reset ball position
-	ball->position.x = 0.0f;
-	ball->position.y = 0.0f;
+	switch( state->numPlayers ) {
+		case 2:
+		case 4:
+		case 5:
+		case 6:
+			state->ball.position.x = 0.0f;
+			state->ball.position.y = 0.0f;
+			break;
+		case 3:
+			state->ball.position.x = 0.0f;
+			state->ball.position.y = -0.26f;
+	}
 
 	// New random movement vector.
-	ball->direction = VectorFromPolar2D( DEGREES_TO_RADIANS( ( ( rand() % 2 ) * 180 ) + ( rand() % 90 - 45 ) ), DEFAULT_BALL_SPEED );
+	if( state->numPlayers == 2 ) {
+		state->ball.direction = VectorFromPolar2D( DEGREES_TO_RADIANS( ( ( rand() % 2 ) * 180 ) + ( rand() % 90 - 45 ) ), DEFAULT_BALL_SPEED );
+	} else {
+		state->ball.direction = VectorFromPolar2D( DEGREES_TO_RADIANS( ( rand() % 360 ) ), DEFAULT_BALL_SPEED );
+	}
 }
 
 
@@ -599,7 +614,7 @@ InitializeBall
 Initializes a ball structure for a new game.
 ====================
 */
-void InitializeBall( struct Ball *ball ) {
-	ResetBall( ball );
+void InitializeBall( struct GameState *state ) {
+	ResetBall( state );
 }
 
