@@ -1,5 +1,5 @@
 #include "Game.h"
-#include "Output.h"
+#include "Display.h"
 #include "Main.h"
 #include "Network.h"
 #include "Physics.h"

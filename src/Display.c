@@ -2,7 +2,7 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include "Debug/Debug.h"
-#include "Output.h"
+#include "Display.h"
 #include "Physics.h"
 #include "Game.h"
 #include "Main.h"
