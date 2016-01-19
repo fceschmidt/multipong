@@ -57,8 +57,8 @@ int InitializeGraphics( void ) {
 	DebugAssert( sdlRenderer );
 	temp = IMG_Load("Assets/Ball.png" );
     ballTexture = SDL_CreateTextureFromSurface( sdlRenderer, temp );
-    //temp = IMG_Load("Assets/Paddle.png" );
-    //paddleTexture = SDL_CreateTextureFromSurface( renderer, temp );
+    temp = IMG_Load("Assets/backgroundGame.png" );
+    backgroundTexture = SDL_CreateTextureFromSurface( sdlRenderer, temp );
 	DebugAssert( !TTF_Init() );
 	sans = TTF_OpenFont( SANS_FONT_FILE, 256 );
 	scoreTexStart = malloc( sizeof( struct ScoreTexture ) );
@@ -147,13 +147,17 @@ int DisplayGameState( struct GameState *state ) {
 
     int            	windowWidth, windowHeight, i;
     SDL_Rect       	ball_rect;
+    SDL_Rect        background_rect;
     struct Point2D  paddleStart;
     struct Point2D  paddleEnd;
     struct Point2D  pointBall;
     int				radius;
 
-    SDL_GetWindowSize( sdlWindow, &windowHeight, &windowHeight );
-    
+    SDL_GetWindowSize( sdlWindow, &windowWidth, &windowHeight );
+    background_rect.x = 0 ;
+    background_rect.y = 0 ;
+    background_rect.h = windowHeight;
+    background_rect.w = windowWidth;
 	//Set all corresponding Rect Values
     CalculateBallCoordinates( state->ball, &pointBall, &radius );
     ball_rect.w = radius*2 ;
@@ -163,16 +167,14 @@ int DisplayGameState( struct GameState *state ) {
 
     //copy everything in the renderer
 	SDL_RenderClear( sdlRenderer );
-
+    SDL_RenderCopy( sdlRenderer, backgroundTexture, NULL, &background_rect );
 	for (i = 0 ; i < state->numPlayers ; i++){
-        SDL_SetRenderDrawColor( sdlRenderer, 0x00, 0x00, 0xFF, 0xFF );
+        SDL_SetRenderDrawColor( sdlRenderer, 0xFF, 0x00, 0x00, 0xFF );
         CalculatePaddleCoordinates( state, i, &paddleStart, &paddleEnd );
         SDL_RenderDrawLine( sdlRenderer, paddleStart.x, paddleStart.y, paddleEnd.x, paddleEnd.y );
 	}
 
 	DrawScores( state );
-
-	SDL_SetRenderDrawColor( sdlRenderer, 0x00, 0x00, 0x00, 0x00 );
 
 	SDL_RenderCopy( sdlRenderer, ballTexture, NULL, &ball_rect );
 	SDL_RenderPresent( sdlRenderer );
@@ -286,7 +288,7 @@ static void GenerateStringTexture( const char *string, SDL_Texture **texture ) {
 
 	SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, string, color );
 	*texture = SDL_CreateTextureFromSurface( sdlRenderer, surfaceMessage );
-	
+
 	SDL_FreeSurface( surfaceMessage );
 }
 
@@ -321,12 +323,12 @@ static void DrawScores( struct GameState *state ) {
 		playerLine = GetPlayerLine( n, state->numPlayers );
 		orthoLeftVector.dx = -playerLine.vector.dy;
 		orthoLeftVector.dy = playerLine.vector.dx;
-		orthoLeftVector = ScaleVector2D( orthoLeftVector, 1.0f / VectorNorm2D( orthoLeftVector ) );
-		
+		orthoLeftVector = ScaleVector2D( orthoLeftVector, 1.0f / sqrt(orthoLeftVector.dx*orthoLeftVector.dx + orthoLeftVector.dy*orthoLeftVector.dy ) );
+
 		// Find out the center of the text rectangle for this user.
 		rectCenter = AddVectorToPoint2D( playerLine.point, ScaleVector2D( playerLine.vector, state->players[n].position + PADDLE_SIZE / 2.0f ) );
 		rectCenter = AddVectorToPoint2D( rectCenter, ScaleVector2D( orthoLeftVector, 0.07f ) );
-		
+
 		// Find the texture for the score
 		for( currentTex = scoreTexStart, currentScore = 0; currentTex != NULL && currentScore < state->players[n].score; currentTex = currentTex->next, currentScore++ );
 
