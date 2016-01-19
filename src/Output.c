@@ -1,9 +1,24 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include "Debug/Debug.h"
 #include "Output.h"
 #include "Physics.h"
 #include "Game.h"
+#include "Main.h"
+
+/*
+==========================================================
+
+A struct that is used to store a linked list of textures for the score display.
+
+==========================================================
+*/
+struct ScoreTexture {
+	SDL_Texture *			texture;
+	struct ScoreTexture *	next;
+} static *scoreTexStart = NULL;
+
 
 // Variables
 static SDL_Window *		sdlWindow = NULL;
@@ -13,9 +28,14 @@ static SDL_Texture*     paddleTexture ;
 static SDL_Texture*     ballTexture ;
 static SDL_Texture*     backgroundTexture;
 static SDL_Surface*     temp;
+static TTF_Font *		sans;
 
-static void	CalculatePaddleCoordinates(  struct GameState *state, int playerId, struct Point2D *start, struct Point2D *end );
-static void CalculateBallCoordinates( struct Ball ball, struct Point2D *point, int *radius );
+static void				CalculatePaddleCoordinates(  struct GameState *state, int playerId, struct Point2D *start, struct Point2D *end );
+static void 			CalculateBallCoordinates( struct Ball ball, struct Point2D *point, int *radius );
+static void 			GetScreenSquare( struct Line2D *rectangle );
+static struct Point2D 	GameToScreenCoordinates( struct Point2D point );
+static void 			GenerateStringTexture( const char *string, SDL_Texture **texture );
+static void 			DrawScores( struct GameState *state );
 
 // Functions
 SDL_Window *GetSdlWindow( void );
@@ -30,7 +50,7 @@ Creates the window and renderer.
 */
 int InitializeGraphics( void ) {
 	DebugAssert( !SDL_Init( SDL_INIT_VIDEO ) );
-	sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, outputFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
+	sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 400, 300, outputFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
 	DebugAssert( sdlWindow );
 	sdlRenderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
 	DebugAssert( sdlRenderer );
@@ -38,12 +58,17 @@ int InitializeGraphics( void ) {
     ballTexture = SDL_CreateTextureFromSurface( sdlRenderer, temp );
     //temp = IMG_Load("Assets/Paddle.png" );
     //paddleTexture = SDL_CreateTextureFromSurface( renderer, temp );
+	DebugAssert( !TTF_Init() );
+	sans = TTF_OpenFont( SANS_FONT_FILE, 256 );
+	scoreTexStart = malloc( sizeof( struct ScoreTexture ) );
+	GenerateStringTexture( "0", &scoreTexStart->texture );
+	scoreTexStart->next = NULL;
+	DebugAssert( scoreTexStart->texture );
 
 	//DebugAssert( SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) );
 	atexit( SDL_Quit );
 	return !( sdlWindow && sdlRenderer );
 }
-
 
 void SetWindowResolution (int  Width , int Height , int Fullscreen) {
     SDL_DestroyWindow(sdlWindow);
@@ -144,6 +169,8 @@ int DisplayGameState( struct GameState *state ) {
         SDL_RenderDrawLine( sdlRenderer, paddleStart.x, paddleStart.y, paddleEnd.x, paddleEnd.y );
 	}
 
+	DrawScores( state );
+
 	SDL_SetRenderDrawColor( sdlRenderer, 0x00, 0x00, 0x00, 0x00 );
 
 	SDL_RenderCopy( sdlRenderer, ballTexture, NULL, &ball_rect );
@@ -242,5 +269,89 @@ static void CalculateBallCoordinates( struct Ball ball, struct Point2D *point, i
 
 		GetScreenSquare( &rect );
 		*radius = ( int )( DEFAULT_BALL_RADIUS * rect.vector.dx / 2.0f );
+	}
+}
+
+/*
+====================
+GenerateStringTexture
+
+Given a string, writes a texture with the contents of the string into the location pointed to by the texture argument.
+====================
+*/
+static void GenerateStringTexture( const char *string, SDL_Texture **texture ) {
+	static SDL_Color color = { 255, 255, 255 };
+
+	SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, string, color );
+	*texture = SDL_CreateTextureFromSurface( sdlRenderer, surfaceMessage );
+	
+	SDL_FreeSurface( surfaceMessage );
+}
+
+/*
+====================
+DrawScores
+
+Given a GameState, draws the associated scores onto the screen.
+To be called in between RenderClear and RenderPresent! :)
+====================
+*/
+static void DrawScores( struct GameState *state ) {
+	int 					n;
+	struct Point2D			rectCenter;
+	struct Line2D			playerLine;
+	struct Vector2D			orthoLeftVector;
+	struct ScoreTexture *	currentTex;
+	struct ScoreTexture *	lastTex;
+	int						currentScore;
+	int						lastScore;
+	int						k;
+	char					scoreString[30];
+	SDL_Rect				textRect;
+	struct Point2D			screenPoint;
+	struct Line2D			screenDimensions;
+
+	GetScreenSquare( &screenDimensions );
+
+	// Iterate over the players
+	for( n = 0; n < state->numPlayers; n++ ) {
+		// Get this player's line.
+		playerLine = GetPlayerLine( n, state->numPlayers );
+		orthoLeftVector.dx = -playerLine.vector.dy;
+		orthoLeftVector.dy = playerLine.vector.dx;
+		orthoLeftVector = ScaleVector2D( orthoLeftVector, 1.0f / VectorNorm2D( orthoLeftVector ) );
+		
+		// Find out the center of the text rectangle for this user.
+		rectCenter = AddVectorToPoint2D( playerLine.point, ScaleVector2D( playerLine.vector, state->players[n].position + PADDLE_SIZE / 2.0f ) );
+		rectCenter = AddVectorToPoint2D( rectCenter, ScaleVector2D( orthoLeftVector, 0.07f ) );
+		
+		// Find the texture for the score
+		for( currentTex = scoreTexStart, currentScore = 0; currentTex != NULL && currentScore < state->players[n].score; currentTex = currentTex->next, currentScore++ );
+
+		// If no texture is there, create it.
+		if( !currentTex ) {
+			for( lastTex = scoreTexStart, lastScore = 0; lastTex->next != NULL && lastScore < currentScore - 1; lastTex = lastTex->next, lastScore++ );
+			for( k = lastScore; k <= state->players[n].score; k++, lastTex = lastTex->next ) {
+				lastTex->next = malloc( sizeof( struct ScoreTexture ) );
+				sprintf( scoreString, "%d", k + 1 );
+				GenerateStringTexture( scoreString, &lastTex->next->texture );
+				lastTex->next->next = NULL;
+				currentTex = lastTex->next;
+			}
+		}
+
+		// currentTex now points to the appropriate texture. Define rectangle
+		screenPoint.x = rectCenter.x - 0.05f;
+		screenPoint.y = rectCenter.y + 0.05f;
+		screenPoint = GameToScreenCoordinates( screenPoint );
+		textRect.x = screenPoint.x;
+		textRect.y = screenPoint.y;
+		textRect.w = 0.05f * screenDimensions.vector.dx;
+		textRect.h = 0.05f * screenDimensions.vector.dy;
+
+		// Draw text
+		//DebugPrintF( "Drawing (tex=%d, x=%d, y=%d, w=%d, h=%d)", ( int )currentTex->texture, textRect.x, textRect.y, textRect.w, textRect.h );
+		DebugAssert( currentTex->texture );
+		SDL_RenderCopy( sdlRenderer, currentTex->texture, NULL, &textRect );
 	}
 }

@@ -14,4 +14,7 @@ enum ProgramState {
 	PS_GAME
 };
 
+#define ASSET_FOLDER "Assets/"
+#define SANS_FONT_FILE ASSET_FOLDER "OpenSans-Regular.ttf"
+
 #endif

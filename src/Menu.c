@@ -9,9 +9,6 @@
 #include "Main.h"
 #include "Debug/Debug.h"
 
-#define ASSET_FOLDER "Assets/"
-#define SANS_FONT_FILE ASSET_FOLDER "OpenSans-Regular.ttf"
-
 /*
 ==========================================================
 
@@ -247,7 +244,7 @@ Performs initialization tasks for the menu component.
 */
 int InitializeMenu( void ) {
 	// Initialize SDL_ttf for font output.
-	DebugAssert( !TTF_Init() );
+	// THIS HAS BEEN MOVED TO OUTPUT.C
     side = 2;
 	// Initialize the username variable.
 	DebugAssert( username = malloc( sizeof( char ) * 30 ) );

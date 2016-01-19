@@ -38,7 +38,6 @@ static float					userPaddleSpeed = 0.0f;
 // FUNCTIONS
 
 static struct Vector2D	AddVectors2D( struct Vector2D vector1, struct Vector2D vector2 );
-static float			VectorNorm2D( struct Vector2D vector );
 static int				GetPointSegment( struct Point2D point, int numPlayers );
 static struct Vector2D	DeltaVector2D( struct Point2D point1, struct Point2D point2 );
 static float			GetVectorAngle2D( struct Vector2D vector1, struct Vector2D vector2 );
@@ -147,10 +146,10 @@ static struct Vector2D DeltaVector2D( struct Point2D point1, struct Point2D poin
 ====================
 VectorNorm2D
 
-Calculates the norm of a 2-dimensional vector and returns it.
+Calculates the euclidean norm of a 2-dimensional vector and returns it.
 ====================
 */
-static float VectorNorm2D( struct Vector2D vector ) {
+float VectorNorm2D( struct Vector2D vector ) {
 	return sqrt( ScalarProduct2D( vector, vector ) );
 }
 
@@ -486,7 +485,9 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 			RegisterHit( segment );
 			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ).vector, ball->direction );
 		} else {
-			RegisterPoint( state );
+			if( IsServer() ) {
+				RegisterPoint( state );
+			}
 			ResetBall( &state->ball );
 		}
 	}

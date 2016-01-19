@@ -679,6 +679,10 @@ static void ClientHandleServerStartGame() {
 	SDLNet_Write16( NETWORK_STANDARD_DATA_PORT, &address->port );
 	ConnectRemoteServerIp( &dataSocket, &dataSocketSet, address );
 
+	char number[4];
+	SDLNet_Write32( thisClient, number );
+	SDLNet_TCP_Send( dataSocket, number, 4 );
+
 	clientGameStarted = 1;
 }
 
@@ -748,33 +752,24 @@ Accepts all clients for the data port now. Waits until we have all clients.
 */
 static int AcceptAllDataClients( void ) {
 	int 		dataClients = 1;
-	int 		i;
 	IPaddress *	info;
 	IPaddress *	newInfo;
+	char		nBuffer[4];
+	int			clientNumber;
 
 	while( dataClients < numClients ) {
 		TCPsocket newClient = NULL;
 		newClient = SDLNet_TCP_Accept( dataSocket );
 
 		if( newClient ) {
-			newInfo = SDLNet_TCP_GetPeerAddress( newClient );
-			for( i = 0; i < numClients; i++ ) {
-				if( !clients[i].socket ) {
-					continue;
-				}
-				info = SDLNet_TCP_GetPeerAddress( clients[i].socket );
-				if( !info ) {
-					continue;
-				}
-				if( newInfo->host != info->host ) {
-					continue;
-				}
+			SDLNet_TCP_Recv( newClient, nBuffer, 4 );
+			clientNumber = SDLNet_Read32( nBuffer );
 
-				clients[i].dataSocketSet = SDLNet_AllocSocketSet( 1 );
-				clients[i].dataSocket = newClient;
-				SDLNet_TCP_AddSocket( clients[i].dataSocketSet, newClient );
-				dataClients++;
-			}
+			clients[clientNumber].dataSocketSet = SDLNet_AllocSocketSet( 1 );
+			clients[clientNumber].dataSocket = newClient;
+			DebugPrintF( "Client %d has connected the data socket.", clientNumber );
+			SDLNet_TCP_AddSocket( clients[clientNumber].dataSocketSet, newClient );
+			dataClients++;
 		}
 	}
 
@@ -909,11 +904,8 @@ static void ServerUpdateClientGeometry( struct GameState *state ) {
 	int				numBytes;
 	union IntFloat *modifier;
 
-	for( player = 0; player < state->numPlayers; player++ ) {
+	for( player = 1 /* 0 is always host */; player < state->numPlayers; player++ ) {
 		// Receive and check length
-		if( player == thisClient ) {
-			continue;
-		}
 		if( !clients[player].dataSocketSet ) {
 			continue;
 		}
@@ -941,9 +933,9 @@ static void ServerSendGameStateGeometry( const struct GameState *state ) {
 	int		numBytes;
 	int		client;
 
-	SerializeGameStateGeometry( state, &bytes, &numBytes );
 	for( client = 0; client < numClients; client++ ) {
 		if( clients[client].dataSocket ) {
+			SerializeGameStateGeometry( state, &bytes, &numBytes );
 			SDLNet_TCP_Send( clients[client].dataSocket, bytes, numBytes );
 		}
 	}

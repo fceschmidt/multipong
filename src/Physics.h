@@ -30,6 +30,7 @@ int				LastHit( void );
 struct Line2D	GetPlayerLine( int player, int numPlayers );
 struct Vector2D	ScaleVector2D( struct Vector2D vector, float scalar );
 struct Point2D	AddVectorToPoint2D( struct Point2D point, struct Vector2D vector );
+float			VectorNorm2D( struct Vector2D vector );
 void			InitializeBall( struct Ball *ball );
 
 #endif
