@@ -15,6 +15,6 @@ enum ProgramState {
 };
 
 #define ASSET_FOLDER "Assets/"
-#define SANS_FONT_FILE ASSET_FOLDER "OpenSans-Regular.ttf"
+#define SANS_FONT_FILE ASSET_FOLDER "ocraextended.ttf"
 
 #endif
