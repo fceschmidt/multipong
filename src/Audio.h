@@ -1,9 +1,11 @@
-#ifndef
+#ifndef AUDIO_H
 #define AUDIO_H
 
-void InitialzeAudio( void );
+#include "Game.h"
+
+void InitializeAudio( void );
 void CloseAudio ( void );
-void PlaySoundHit( void );
-void PlaySoundPoint( void );
+void PlaySoundHit( int player );
+void PlaySoundPoint( const struct GameState *state, int player );
 
 #endif

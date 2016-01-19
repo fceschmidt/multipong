@@ -3,7 +3,7 @@ CFLAGS = -c -Wall `sdl2-config --cflags`
 CRELEASEFLAGS = $(CFLAGS) -O2
 CDEBUGFLAGS = $(CFLAGS) -DDEBUG -g
 LD = $(CC)
-LDFLAGS = -lGL -lGLU `sdl2-config --libs` -lSDL2_net -lSDL2_image -lSDL2_ttf -lm
+LDFLAGS = -lGL -lGLU `sdl2-config --libs` -lSDL2_net -lSDL2_image -lSDL2_ttf -lm -lSDL2_mixer
 
 RELEASETARGET = ../build/release/multipong
 DEBUGTARGET = ../build/debug/multipong

@@ -2,6 +2,8 @@
 #include <SDL2/SDL_mixer.h>
 #include <stdio.h>
 #include <string.h>
+#include "Audio.h"
+#include "Physics.h"
 
 #define PATH "Assets/Audio/"
 
@@ -23,6 +25,8 @@ void InitializeAudio() {
 		printf( "Mix_LoadMUS( \"Musik\" ): %s\n", Mix_GetError() );
 	if( Mix_PlayMusic( theme, -1 ) < 0 )
 		printf( "Mix_PlayMusic: %s\n", Mix_GetError() );
+	AtRegisterHit( PlaySoundHit );
+	AtRegisterPoint( PlaySoundPoint );
 } //TODO: Implement into Program and tie into debugging?
 
 /*
@@ -43,7 +47,7 @@ PlaySoundHit
 Plays soundeffect for a hit
 ====================
 */
-void PlaySoundHit() {
+void PlaySoundHit( int player ) {
 	Mix_Chunk *ping = NULL;
 	ping = Mix_LoadWAV( PATH "ping.wav" );
 	Mix_PlayChannel( -1, ping, 0 );
@@ -58,28 +62,10 @@ PlaySoundPoint
 Plays soundeffect for a scored point
 ====================
 */
-void PlaySoundPoint() {
+void PlaySoundPoint( const struct GameState *state, int player ) {
 	Mix_Chunk *success = NULL;
 	success = Mix_LoadWAV( PATH "success.wav" );
 	Mix_PlayChannel( -1, success, 0 );
 //	Mix_FreeChunk( success );
 //	success = NULL;
 } //TODO: Implement into Physics probably?
-
-
-//For testing:
-int main (int argc, char *argv[]) {
-	InitializeAudio();
-	int n = 0;
-	printf("laeuft:\n");
-	scanf("%d", &n);
-	while(1) {
-	if(n==1)
-		PlaySoundPoint();
-	if(n==2)
-		PlaySoundHit();
-	else
-		CloseAudio();
-	}
-	return 0;
-}

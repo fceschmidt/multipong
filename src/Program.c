@@ -4,6 +4,7 @@
 #include "Output.h"
 #include "Menu.h"
 #include "Debug/Debug.h"
+#include "Audio.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -77,6 +78,7 @@ int InitializeProgram( int argc, char *argv[] ) {
 	InitializeGraphics();
 	InitializePhysics();
 	InitializeMenu();
+	InitializeAudio();
 	
 	// TODO: Remove this hello message and print it in debug.
 	DebugPrintF( "Successfully started multipong." );
@@ -103,6 +105,7 @@ Destroys all resources used by the program.
 */
 static void DestroyResources( void ) {
 	// TODO: Call all destructors.
+	CloseAudio();
 	CloseDebug();
 }
 

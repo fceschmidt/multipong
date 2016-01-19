@@ -485,9 +485,7 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 			RegisterHit( segment );
 			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ).vector, ball->direction );
 		} else {
-			if( IsServer() ) {
-				RegisterPoint( state );
-			}
+			RegisterPoint( state );
 			ResetBall( &state->ball );
 		}
 	}
