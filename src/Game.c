@@ -30,7 +30,7 @@ static int InitializeGame( void ) {
 		currentState.players[i].position = 0.0f;
 		currentState.players[i].score = 0;
 	}
-	InitializeBall( &currentState.ball );
+	InitializeBall( &currentState );
 	return 0;
 }
 
@@ -48,8 +48,6 @@ int RunGame( void ) {
 	
 	// For timekeeping...
 	unsigned int lastFrame = SDL_GetTicks();
-	// For time limitation...
-	time_t start = time( NULL );
 
 	while( 1 ) {
 		ProcessPhysics( &currentState, ( float )( SDL_GetTicks() - lastFrame ) / 1000.0f );
