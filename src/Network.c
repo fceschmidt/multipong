@@ -978,10 +978,12 @@ static void ServerInGameSendScore( const struct GameState *state, int player ) {
 	int 	numBytes;
 	int		client;
 
-	numBytes = 4 * state->numPlayers;
+	numBytes = 8 + 4 * state->numPlayers;
 	bytes = malloc( numBytes );
+	SDLNet_Write32( ( int )PID_SCORE,	&bytes[0] );
+	SDLNet_Write32( numBytes,			&bytes[4] );
 	for( client = 0; client < state->numPlayers; client++ ) {
-		SDLNet_Write32( state->players[client].score, &bytes[4 * client] );
+		SDLNet_Write32( state->players[client].score, &bytes[8 + 4 * client] );
 	}
 
 	BroadcastPacketToClients( bytes, numBytes );
@@ -1090,6 +1092,7 @@ static void	ClientProcessInGameIncomingPackets( struct GameState *state, char *b
 			case PID_SCORE:
 				for( player = 0; player < state->numPlayers; player++ ) {
 					state->players[player].score = SDLNet_Read32( &bytes[bReadPosition + 8 + 4 * player] );
+					DebugPrintF( "Player #%d has %d points.", player, state->players[player].score );
 				}
 				break;
 		}
