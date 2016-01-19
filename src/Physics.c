@@ -333,7 +333,10 @@ static void RegisterPoint( struct GameState *state ) {
 	// Check if any player got lastHit
 	if( lastHit >= 0 && lastHit < state->numPlayers ) {
 		// Increment that player's score and call the event handler.
-		state->players[lastHit].score++;
+		// Only if you're the server, because the clients get their scores from the server.
+		if( IsServer() ) {
+			state->players[lastHit].score++;
+		}
 		if( rpHandler ) {
 			// Call all registered handlers for the RegisterPoint event.
 			int elem;
