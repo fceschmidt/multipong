@@ -72,6 +72,7 @@ union IntFloat {
 static int 						isServer = 0;			// A boolean value which is 1 if this component is a server and 0 if it is a client.
 static int 						isConnected = 0;		// A boolean value which indicates whether the component is currently connected.
 static int 						isInitialized = 0;		// A boolean value indicating initialization state.
+int								clientGameStarted = 0;	// Is 1 only if the network component is in client mode and the server has started the game
 
 static TCPsocket 				activeSocket = NULL;	// The current socket for state & meta information
 static SDLNet_SocketSet			activeSocketSet = NULL;	// The associated socket set for asio
@@ -81,7 +82,6 @@ static SDLNet_SocketSet 		dataSocketSet = NULL;	// The associated socket set for
 static struct NetworkClientInfo clients[6];				// 6 players maximum, eh?!
 static int						numClients = 0;			// The amount of filled in elements of the clients array
 static int						thisClient = -1;		// The index of this client in the clients array
-int								clientGameStarted = 0;	// Is 1 only if the network component is in client mode and the server has started the game
 
 // FUNCTIONS
 
