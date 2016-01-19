@@ -43,7 +43,7 @@ static int				GetPointSegment( struct Point2D point, int numPlayers );
 static struct Vector2D	DeltaVector2D( struct Point2D point1, struct Point2D point2 );
 static float			GetVectorAngle2D( struct Vector2D vector1, struct Vector2D vector2 );
 static float			ScalarProduct2D( struct Vector2D vector1, struct Vector2D vector2 );
-static struct Vector2D	GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement );
+static struct Vector2D	GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement, int random );
 static void				LineCircleCollision2D( struct Circle2D circle, struct Line2D line, int *isRight, float *projection );
 static void				HandleInput( float deltaSeconds );
 static void				DisplaceUserPaddle( struct GameState *state, float deltaSeconds );
@@ -395,19 +395,37 @@ static void LineCircleCollision2D( struct Circle2D circle, struct Line2D line, i
 
 /*
 ====================
+RotateVector2D
+
+Rotates a vector by the given angle.
+====================
+*/
+static struct Vector2D RotateVector2D( struct Vector2D vector, float angle ) {
+	struct Vector2D result;
+	result.dx = vector.dx * cos( angle ) - vector.dy * sin( angle );
+	result.dy = vector.dx * sin( angle ) - vector.dy * cos( angle );
+	return result;
+}
+
+/*
+====================
 GetReflectionVector
 
 Gets a reflection vector for the object which bounces off the wall.
 TODO: Make it a bit more random.
 ====================
 */
-static struct Vector2D GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement ) {
+static struct Vector2D GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement, int random ) {
 	struct Vector2D wallNormal;
 	wallNormal.dx = wall.dy;
 	wallNormal.dy = -wall.dx;
 	wallNormal = ScaleVector2D( wallNormal, 1.0f / VectorNorm2D( wallNormal ) );
 
-	return AddVectors2D( objectMovement, ScaleVector2D( wallNormal, -2.0f * ScalarProduct2D( objectMovement, wallNormal ) ) );
+	if( random ) {
+		return RotateVector2D( AddVectors2D( objectMovement, ScaleVector2D( wallNormal, -2.0f * ScalarProduct2D( objectMovement, wallNormal ) ) ), ( float )DEGREES_TO_RADIANS( rand() % 40 - 20 ) );
+	} else {
+		return AddVectors2D( objectMovement, ScaleVector2D( wallNormal, -2.0f * ScalarProduct2D( objectMovement, wallNormal ) ) );
+	}
 }
 
 /*
@@ -466,12 +484,12 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 		struct Line2D upperLine = { .point = { .x = -1.0f, .y = 1.0f }, .vector = { .dx = 2.0f, .dy = 0.0f } };
 		LineCircleCollision2D( ballCircle, lowerLine, &isRight, &projection );
 		if( !isRight ) {
-			ball->direction = GetReflectionVector( lowerLine.vector, ball->direction );
+			ball->direction = GetReflectionVector( lowerLine.vector, ball->direction, 0 );
 			return;
 		}
 		LineCircleCollision2D( ballCircle, upperLine, &isRight, &projection );
 		if( !isRight ) {
-			ball->direction = GetReflectionVector( upperLine.vector, ball->direction );
+			ball->direction = GetReflectionVector( upperLine.vector, ball->direction, 0 );
 			return;
 		}
 	}
@@ -487,7 +505,7 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 		// Check if the paddle hits the ball!
 		if( projection >= *currentPosition - PADDLE_TOLERANCE && projection <= *currentPosition + PADDLE_SIZE + PADDLE_TOLERANCE ) {
 			RegisterHit( segment );
-			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ).vector, ball->direction );
+			ball->direction = GetReflectionVector( GetPlayerLine( segment, state->numPlayers ).vector, ball->direction, 1 );
 		} else {
 			RegisterPoint( state );
 			ResetBall( state );
