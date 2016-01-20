@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include "Game.h"
 
-#define NETWORK_STANDARD_SERVER_PORT ( ( uint16_t )26228 )
-#define STANDARD_UDP_SERVER_PORT ( ( uint16_t )26229 )
+#define NETWORK_STANDARD_SERVER_PORT ( ( uint16_t )1194 )
+#define STANDARD_UDP_SERVER_PORT ( ( uint16_t )11371 )
 #define NETWORK_STANDARD_DATA_PORT STANDARD_UDP_SERVER_PORT
 #define GAME_START 20
 

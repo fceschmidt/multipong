@@ -403,7 +403,7 @@ Rotates a vector by the given angle.
 static struct Vector2D RotateVector2D( struct Vector2D vector, float angle ) {
 	struct Vector2D result;
 	result.dx = vector.dx * cos( angle ) - vector.dy * sin( angle );
-	result.dy = vector.dx * sin( angle ) - vector.dy * cos( angle );
+	result.dy = vector.dx * sin( angle ) + vector.dy * cos( angle );
 	return result;
 }
 
