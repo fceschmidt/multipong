@@ -110,6 +110,8 @@ static void ServerUpdateClientGeometry( struct GameState *state );
 static void ServerSendGameStateGeometry( const struct GameState *state );
 static void ServerInGameSendHit( int player );
 static void ServerInGameSendScore( const struct GameState *state, int player );
+static void ServerInGameSendQuit( void );
+static int	ServerProcessInGameIncomingPackets( void );
 static int	ServerProcessInGame( struct GameState *state );
 
 // CLIENT-ONLY FUNCTIONS
@@ -121,8 +123,8 @@ static void	ClientHandleServerYourId( int newId );
 static void	ClientHandleServerStartGame( void );
 static void ClientSendStateGeometry( const struct GameState *state );
 static void ClientUpdateStateGeometry( struct GameState *state );
-static void ClientUpdateStateInformation( struct GameState *state );
-static void	ClientProcessInGameIncomingPackets( struct GameState *state, char *bytes, int numBytes );
+static int	ClientUpdateStateInformation( struct GameState *state );
+static int	ClientProcessInGameIncomingPackets( struct GameState *state, char *bytes, int numBytes );
 static int	ClientProcessInGame( struct GameState *state );
 
 // These two functions are accessed by the physics component... dont' make them static!
@@ -796,6 +798,7 @@ int NetworkStartGame( uint16_t udpPort ) {
 	// Register the broadcast functions with the physics component so hits and misses get sent to the other clients.
 	AtRegisterHit( &ServerInGameSendHit );
 	AtRegisterPoint( &ServerInGameSendScore );
+	AtRegisterQuit( &ServerInGameSendQuit );
 
 	AcceptAllDataClients();
 
@@ -977,6 +980,69 @@ static void ServerInGameSendScore( const struct GameState *state, int player ) {
 	BroadcastPacketToClients( bytes, numBytes );
 }
 
+/*
+====================
+ServerInGameSendQuit
+
+Gets called whenever the server player decides to quit the game.
+====================
+*/
+static void ServerInGameSendQuit( void ) {
+	char	bytes[8];
+
+	SDLNet_Write32( ( int )PID_QUIT,	&bytes[0] );
+	SDLNet_Write32( 8,					&bytes[4] );
+
+	BroadcastPacketToClients( bytes, 8 );
+}
+
+/*
+====================
+ServerProcessInGameIncomingPackets
+
+Checks on the active socket for incoming packets.
+====================
+*/
+static int ServerProcessInGameIncomingPackets( void ) {
+	// Process other clients' packets!
+	int numBytes;
+	char bytes[1024];
+	int client;
+	int bReadPosition = 0;
+	int endOfStream = 0;
+
+	// Go through the clients
+	for( client = 0; client < numClients; client++ ) {
+		// If there is a socket (so, not this client)
+		if( !clients[client].socket ) {
+			continue;
+		}
+		// while there is something to read from, process the packets.
+		while( 1 /* This breaks if nothing has been received. */ ) {
+			numBytes = NonBlockingRecv( clients[client].socket, clients[client].socketSet, bytes, sizeof( bytes ) );
+			if( numBytes <= 0 ) {
+				break;
+			}
+			DebugPrintF( "Received %d bytes.", numBytes );
+
+			// Process the packet contents.
+			while( !endOfStream ) {
+				switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
+					case PID_QUIT:
+						// Handle the quit
+						ServerInGameSendQuit();
+						return -2;
+						break;
+				}
+				bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
+				if( bReadPosition >= numBytes ) {
+					endOfStream = 1;
+				}
+			}
+		}
+	}
+	return 0;
+}
 
 /*
 ====================
@@ -991,13 +1057,17 @@ static int ServerProcessInGame( struct GameState *state ) {
 		return -1;
 	}
 
+	int result = 0;
+
 	// Update own information from clients (dataSocket)
 	ServerUpdateClientGeometry( state );
 	// Broadcast complete GameState information (dataSocket)
 	ServerSendGameStateGeometry( state );
 	// NOTE: The functions which broadcast hits and score lists effectively get called by the physics component. (activeSocket)
+	// Checks for quit messages from clients.
+	result = ServerProcessInGameIncomingPackets();
 
-	return 0;
+	return result;
 }
 
 /*
@@ -1064,7 +1134,7 @@ ClientProcessInGameIncomingPackets
 Given a buffer of packets and its length, acts upon the packet contents (PID_BALL_HIT and PID_SCORE).
 ====================
 */
-static void	ClientProcessInGameIncomingPackets( struct GameState *state, char *bytes, int numBytes ) {
+static int	ClientProcessInGameIncomingPackets( struct GameState *state, char *bytes, int numBytes ) {
 	int		clientId;
 	int		player;
 
@@ -1083,12 +1153,17 @@ static void	ClientProcessInGameIncomingPackets( struct GameState *state, char *b
 					DebugPrintF( "Player #%d has %d points.", player, state->players[player].score );
 				}
 				break;
+			case PID_QUIT:
+				// We get a quit message? Okay, let's quit too.
+				return -2;
 		}
 		bReadPosition += SDLNet_Read32( &bytes[bReadPosition + 4] );
 		if( bReadPosition >= numBytes ) {
 			endOfStream = 1;
 		}
 	}
+
+	return 0;
 }
 
 /*
@@ -1098,18 +1173,22 @@ ClientUpdateStateInformation
 Receives information about the game state (score lists and hits) on the active socket.
 ====================
 */
-static void ClientUpdateStateInformation( struct GameState *state ) {
+static int ClientUpdateStateInformation( struct GameState *state ) {
 	// Try to receive and return in case there isn't any new information.
 	char	bytes[1024];
 	int		numBytes;
+	int		result = 0;
 
-	while( 1 ) {
+	while( result == 0 ) {
 		numBytes = NonBlockingRecv( activeSocket, activeSocketSet, bytes, sizeof( bytes ) );
 		if( numBytes <= 0 ) {
 			break;
 		}
-		ClientProcessInGameIncomingPackets( state, bytes, numBytes );
+		result = ClientProcessInGameIncomingPackets( state, bytes, numBytes );
 	}
+
+	// Returns -2 when we get a quit message, something else otherwise.
+	return result;
 }
 
 /*
@@ -1125,6 +1204,8 @@ static int ClientProcessInGame( struct GameState *state ) {
 		return -1;
 	}
 
+	int result = 0;
+
 	// Send your own paddle's position to the server
 	ClientSendStateGeometry( state );
 
@@ -1132,9 +1213,10 @@ static int ClientProcessInGame( struct GameState *state ) {
 	ClientUpdateStateGeometry( state );
 
 	// Receive ball hits and score lists from the server
-	ClientUpdateStateInformation( state );
+	result = ClientUpdateStateInformation( state );
 
-	return 0;
+	// Returns -2 when we should quit.
+	return result;
 }
 
 /*

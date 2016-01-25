@@ -41,21 +41,35 @@ RunGame
 Currently, displays the GameState for 10 seconds.
 ====================
 */
-int RunGame( void ) {
+enum ProgramState RunGame( void ) {
+	int result = 0;
+
 	DebugPrintF( "RunGame called." );
 	InitializeGame();
 	NetworkStartGame( NETWORK_STANDARD_DATA_PORT );
-	
+
 	// For timekeeping...
 	unsigned int lastFrame = SDL_GetTicks();
 
 	while( 1 ) {
-		ProcessPhysics( &currentState, ( float )( SDL_GetTicks() - lastFrame ) / 1000.0f );
+		// When ProcessPhysics returns -2, this means that the program should be stopped because the user pressed escape.
+		result = ProcessPhysics( &currentState, ( float )( SDL_GetTicks() - lastFrame ) / 1000.0f );
+		if( result == -2 ) {
+			return PS_QUIT;
+		}
+
 		lastFrame = SDL_GetTicks();
-		ProcessInGame( &currentState );
+
+		// So here on -2 either the client or the server got quit packets or something similar.
+		result = ProcessInGame( &currentState );
+		if( result == -2 ) {
+			return PS_QUIT;
+		}
+
 		DisplayGameState( &currentState );
 		// Ensures acceptable time measurements (We don't want ~positive infinity FPS, that would break physics)
 		SDL_Delay( 10 );
 	}
+
 	return PS_MENU;
 }

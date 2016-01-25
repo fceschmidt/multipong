@@ -28,8 +28,10 @@ struct Circle2D {
 
 static registerHitHandler_t *	rhHandler = NULL;
 static registerPointHandler_t *	rpHandler = NULL;
+static registerQuitHandler_t *	rqHandler = NULL;
 int								numRhHandler = 0;
 int								numRpHandler = 0;
+int								numRqHandler = 0;
 static int						lastHit = -1;
 static const unsigned char *	sdlKeyArray = NULL;
 static const int				clockwiseKey = SDL_SCANCODE_LEFT;
@@ -45,12 +47,13 @@ static float			GetVectorAngle2D( struct Vector2D vector1, struct Vector2D vector
 static float			ScalarProduct2D( struct Vector2D vector1, struct Vector2D vector2 );
 static struct Vector2D	GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement, int random );
 static void				LineCircleCollision2D( struct Circle2D circle, struct Line2D line, int *isRight, float *projection );
-static void				HandleInput( float deltaSeconds );
+static int				HandleInput( float deltaSeconds );
 static void				DisplaceUserPaddle( struct GameState *state, float deltaSeconds );
 static void				BallLogic( struct GameState *state, float deltaSeconds );
 static void				RegisterPoint( struct GameState *state );
 static void				ResetBall( struct GameState *state );
 static struct Vector2D	VectorFromPolar2D( float angle, float norm );
+static void				RegisterQuit( void );
 
 // Imported from the network component.
 extern int				IsServer( void );
@@ -325,6 +328,48 @@ void AtRegisterPoint( registerPointHandler_t handler ) {
 
 /*
 ====================
+AtRegisterQuit
+
+Registers a function so it gets called whenever the user hits the escape key during the game.
+====================
+*/
+void AtRegisterQuit( registerQuitHandler_t handler ) {
+	// If there is no quit handler, initialize the array.
+	if( !rqHandler ) {
+		numRqHandler = 1;
+		rqHandler = malloc( numRqHandler * sizeof( registerQuitHandler_t ) );
+		rqHandler[0] = handler;
+		return;
+	}
+	// Else add the handler to the list
+	numRqHandler++;
+	registerQuitHandler_t *newArray = malloc( numRqHandler * sizeof( registerQuitHandler_t ) );
+	memcpy( newArray, rqHandler, ( numRqHandler - 1 ) * sizeof( registerQuitHandler_t ) );
+	free( rqHandler );
+	newArray[numRqHandler - 1] = handler;
+	rqHandler = newArray;
+}
+
+/*
+====================
+RegisterQuit
+
+Calls all event handlers for quitting.
+====================
+*/
+static void RegisterQuit( void ) {
+	if( rqHandler ) {
+		int elem;
+		for( elem = 0; elem < numRqHandler; elem++ ) {
+			if( rqHandler[elem] ) {
+				( rqHandler[elem] )();
+			}
+		}
+	}
+}
+
+/*
+====================
 RegisterPoint
 
 Registers when the ball moves beyond the pitch and determines which player, if any, gets a point. If so, it calls the event handler registered with rpHandler.
@@ -527,8 +572,12 @@ int ProcessPhysics( struct GameState *state, float deltaSeconds ) {
 		return -1;
 	}
 
-	// Code for the user input.
-	HandleInput( deltaSeconds );
+	// Code for the user input. Returns -2 when the user hits escape.
+	if( HandleInput( deltaSeconds ) == -2 ) {
+		// Call all quit handlers
+		RegisterQuit();
+		return -2;
+	}
 
 	// Handles what happens to the paddle according to input.
 	DisplaceUserPaddle( state, deltaSeconds );
@@ -558,7 +607,7 @@ HandleInput
 Handles input from the keyboard that is relevant for the physics component.
 ====================
 */
-static void	HandleInput( float deltaSeconds ) {
+static int	HandleInput( float deltaSeconds ) {
 	// Check for keys.
 	SDL_PumpEvents();
 
@@ -577,8 +626,10 @@ static void	HandleInput( float deltaSeconds ) {
 	}
 
 	if( sdlKeyArray[SDL_SCANCODE_ESCAPE] ) {
-		exit( 0 );
+		return -2; // Code for user interruption.
 	}
+
+	return 0; // Normal exit code.
 }
 
 /*

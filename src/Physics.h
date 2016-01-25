@@ -8,6 +8,7 @@
 
 typedef void ( *registerHitHandler_t )( int player );
 typedef void ( *registerPointHandler_t )( const struct GameState *state, int player );
+typedef void ( *registerQuitHandler_t )( void );
 
 /*
 ==========================================================
@@ -26,6 +27,7 @@ int				ProcessPhysics( struct GameState *state, float deltaSeconds );
 void			AtRegisterHit( registerHitHandler_t handler );
 void			RegisterHit( int player );
 void			AtRegisterPoint( registerPointHandler_t handler );
+void			AtRegisterQuit( registerQuitHandler_t handler );
 int				LastHit( void );
 struct Line2D	GetPlayerLine( int player, int numPlayers );
 struct Vector2D	ScaleVector2D( struct Vector2D vector, float scalar );

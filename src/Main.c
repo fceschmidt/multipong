@@ -31,11 +31,13 @@ int main( int argc, char *argv[] ) {
 				mode = RunGame();
 				break;
 			default:
+				// What is this? Someone broke our mode value. Print something and exit.
+				DebugPrintF( "There exists no handler for mode = %d! Quitting.", ( int )mode );
+				mode = PS_QUIT;
 				break;
 		}
-		
 	}
-	
+
 	// Return 0 otherwise.
 	CloseProgram( 0 );
 	return 0;

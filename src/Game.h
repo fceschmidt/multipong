@@ -63,6 +63,6 @@ struct GameState {
 	struct Ball		ball;
 };
 
-int	RunGame( void );
+enum ProgramState	RunGame( void );
 
 #endif
