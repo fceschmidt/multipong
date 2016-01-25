@@ -276,13 +276,12 @@ Performs initialization tasks for the menu component.
 int InitializeMenu( void ) {
 	// Initialize SDL_ttf for font output.
 	// THIS HAS BEEN MOVED TO OUTPUT.C
-    side = 2;
+    side = SI_UNDECIDED;
 	// Initialize the username variable.
 	DebugAssert( username = malloc( sizeof( char ) * 30 ) );
 	username[0] = '\0';
 
 	return 0;
-
 }
 
 /*
@@ -358,7 +357,7 @@ int ShowMenu( void ) {
 	}
 
 	// Let the user choose sides.
-	if( side == 2 ) {
+	if( side == SI_UNDECIDED ) {
 		ChooseSide();
 	}
 
@@ -787,7 +786,7 @@ static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer 
 
 	// Load the texutures for the start button, the text frame, title, background, and the four main menu buttons,
 	// according to the side chosen (Evil or Good).
-	if( side == 1 ) {
+	if( side == SI_EVIL ) {
 		temp = IMG_Load( ASSET_FOLDER "Evil/Start.png" );
 		startButton.texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Start(Disabled).png" );
