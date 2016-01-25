@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
@@ -17,13 +18,13 @@ A struct for a button in the main menu
 ==========================================================
 */
 typedef struct Button {
-	char*    		text;
-	int      		x;
-	int      		y;
-	int      		height;
-	int		 		width;
-	SDL_Texture* 	texNotSelected;
-	SDL_Texture* 	texSelected;
+	char *			text;
+	int				x;
+	int				y;
+	int				height;
+	int				width;
+	SDL_Texture*	texNotSelected;
+	SDL_Texture*	texSelected;
 	struct Button*       succButton ;
 	struct Button*       predButton ;
 } Button_t;
@@ -42,47 +43,70 @@ enum MenuState {
 	MS_OPTIONS
 };
 
+/*
+==========================================================
+
+An enumeration for the two sides that can be taken in the game.
+
+==========================================================
+*/
+enum Side {
+	SI_GOOD = 0,
+	SI_EVIL = 1,
+	SI_UNDECIDED
+};
+
 static SDL_Texture *backgroundTexture;
 static SDL_Texture *titleTexture;
 static SDL_Texture *frameTexture;
-static Button_t 	startButton;
-static char * 		username = "multipong\0";
-static int          side=2;
+static Button_t		startButton;
+static char *		username = "multipong\0";
+static enum Side	side = SI_UNDECIDED;
 static TTF_Font *	sans;
 static int          numWindowResolutions;
-static int 			VolumeMeter;
-static int* 		CW;
-static int* 		CH;
-//static Button_t		OptionsOrder[2];
-static int 			markedOptions;
+static int			VolumeMeter;
+static int*			CW;
+static int*			CH;
+static int			markedOptions;
+static int			resolutionCounter;
 
-static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
-static int  resolutionCounter ;
-static void TextInput( const char *description, char *text );
-static int EventCheckMainMenu( int *marked, enum MenuState *menuState );
-static int EventCheckLobby( int *marked, enum MenuState *menuState );
-static int EventCheck( int *marked , enum MenuState *menuState );
-static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState );
-static int RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , enum MenuState *menuState );
-static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState );
-static int Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer, int *marked , enum MenuState *menuState, Button_t *tabOrder );
-static void GoDown( int *marked );
-static void GoUp( int *marked );
-static int EventCheckOptions( enum MenuState *menuState );
-static int RenderOptions( SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) ;
-static void HostGame( void );
-static void JoinGame( void );
-static void Options( void );
-static void ChooseSide ( void ) ;
-static void GoOptions ( void );
+static void			InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow );
+static void			TextInput( const char *description, char *text );
+static int			EventCheckMainMenu( int *marked, enum MenuState *menuState );
+static int			EventCheckLobby( int *marked, enum MenuState *menuState );
+static int			EventCheck( int *marked , enum MenuState *menuState );
+static int			RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState );
+static int			RenderLobby( Button_t *tabOrder , int *marked , SDL_Renderer *renderer , SDL_Window *sdlWindow , enum MenuState *menuState );
+static int			Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState );
+static int			Menu( SDL_Window *sdlWindow, SDL_Renderer* renderer, int *marked , enum MenuState *menuState, Button_t *tabOrder );
+static void			GoDown( int *marked );
+static void			GoUp( int *marked );
+static int			EventCheckOptions( enum MenuState *menuState );
+static int			RenderOptions( SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) ;
+static void			HostGame( void );
+static void			JoinGame( void );
+static void			Options( void );
+static void			ChooseSide( void );
+static enum Side	GetSide( void );
+static void			GoOptions( void );
 
 extern SDL_Window *			GetSdlWindow( void );
 extern SDL_Renderer *		GetSdlRenderer( void );
+
+// extern because this is defined in Network.c
+// const because it should never be changed from here
+// volatile because it might be changed from elsewhere (so the compiler doesn't strip the access code)
 extern const volatile int	clientGameStarted;
 
 void GetUserName( char* Name );
 
+/*
+====================
+GoOptions
 
+TODO: Explain
+====================
+*/
 static void GoOptions ( void ) {
     if ( markedOptions != 0 ){
         markedOptions = 0;
@@ -95,28 +119,37 @@ static void GoOptions ( void ) {
 ====================
 GetSide
 
-returns the side that was chosen. 1 = Sith 0 = Jedi
+Returns the side that was chosen. SI_EVIL = Sith SI_GOOD = Jedi
 ====================
 */
-int GetSide(){
-return side ;
+enum Side GetSide( void ) {
+	return side;
 }
 
+/*
+====================
+ChooseSide
 
-
+Lets you choose sides in the beginning of the game.
+====================
+*/
 static void ChooseSide ( void ){
-    int            windowWidth, windowHeight, choosing = 0, done ;
-    SDL_Window *   sdlWindow = GetSdlWindow();
-    SDL_Renderer * sdlRenderer = GetSdlRenderer();
-    SDL_Event      event ;
-    SDL_Rect       evil_rect;
-    SDL_Rect       good_rect;
-    SDL_Surface*   temp;
-    SDL_Texture*   good;
-    SDL_Texture*   evil;
-    SDL_Texture*   goodSelected;
-    SDL_Texture*   evilSelected;
-    done = 0 ;
+    int				windowWidth, windowHeight, done;
+	enum Side		choice = SI_GOOD;
+    SDL_Window *	sdlWindow = GetSdlWindow();
+    SDL_Renderer *	sdlRenderer = GetSdlRenderer();
+    SDL_Event		event ;
+    SDL_Rect		evil_rect;
+    SDL_Rect		good_rect;
+    SDL_Surface*	temp;
+    SDL_Texture*	good;
+    SDL_Texture*	evil;
+    SDL_Texture*	goodSelected;
+    SDL_Texture*	evilSelected;
+
+	// TODO: Fix this.
+	// Load everything
+    done = 0;
     SDL_GetWindowSize( sdlWindow, &windowWidth, &windowHeight );
     temp = IMG_Load( ASSET_FOLDER "BadChooseSide.png" );
 	evil = SDL_CreateTextureFromSurface( sdlRenderer, temp );
@@ -126,29 +159,28 @@ static void ChooseSide ( void ){
 	evilSelected = SDL_CreateTextureFromSurface( sdlRenderer, temp );
     temp = IMG_Load( ASSET_FOLDER "GoodChooseSide(Selected).png" );
 	goodSelected = SDL_CreateTextureFromSurface( sdlRenderer, temp );
+
+	// Render loop all-in-one with event loop!
     while ( !done ) {
 		if ( SDL_PollEvent( &event ) ) {
 			if ( event.type == SDL_KEYDOWN ) {
                 switch (event.key.keysym.sym){
                     case SDLK_LEFT:
-                        choosing = 1 ;
+                        choice = SI_EVIL;
                         break;
                     case SDLK_RIGHT:
-                        choosing = 0 ;
+                        choice = SI_GOOD;
                         break;
                     case SDLK_RETURN:
-                        side = choosing ;
-                        printf("Chose Side : %d\n",side);
-                        done = 1 ;
+                        side = choice;
+                        printf( "Chose Side : %d\n", ( int )side );
+                        done = 1;
                         break;
-
                 }
-
-
 			}
 		}
 
-    	SDL_RenderClear( sdlRenderer ) ;
+		SDL_RenderClear( sdlRenderer ) ;
 	    good_rect.x = windowWidth / 2 ;
 	    good_rect.y = 0 ;
 	    evil_rect.x = 0 ;
@@ -158,24 +190,23 @@ static void ChooseSide ( void ){
 	    evil_rect.w = windowWidth/2 ;
 	    evil_rect.h = windowHeight ;
 
-		if (choosing == 1){
-        	SDL_RenderCopy(sdlRenderer,good,NULL,&good_rect);
-	        SDL_RenderCopy(sdlRenderer,evilSelected,NULL,&evil_rect);
+		if( choice == SI_EVIL ){
+			SDL_RenderCopy( sdlRenderer, good, NULL, &good_rect );
+	        SDL_RenderCopy( sdlRenderer, evilSelected, NULL, &evil_rect );
 	    } else {
-	        SDL_RenderCopy(sdlRenderer,goodSelected,NULL,&good_rect);
-	        SDL_RenderCopy(sdlRenderer,evil,NULL,&evil_rect);
+	        SDL_RenderCopy( sdlRenderer, goodSelected, NULL, &good_rect );
+	        SDL_RenderCopy( sdlRenderer, evil, NULL, &evil_rect );
 	    }
 		SDL_RenderPresent( sdlRenderer );
     }
-    SDL_FreeSurface(temp);
-    SDL_DestroyTexture(good);
-    SDL_DestroyTexture(evil);
-    SDL_DestroyTexture(goodSelected);
-    SDL_DestroyTexture(evilSelected);
 
-
+	// Destroy everything
+    SDL_FreeSurface( temp );
+    SDL_DestroyTexture( good );
+    SDL_DestroyTexture( evil );
+    SDL_DestroyTexture( goodSelected );
+    SDL_DestroyTexture( evilSelected );
 }
-
 
 /*
 ====================
@@ -185,15 +216,15 @@ Given an allocated text buffer and a description, prompts the user for text inpu
 ====================
 */
 static void TextInput( const char *description, char *text ) {
-	int 			windowWidth, windowHeight,widthText,heightText;
+	int				windowWidth, windowHeight, widthText, heightText;
 	int				done = 0;
 	char			array[40];
 	SDL_Rect		inputRect;
 	TTF_Font *		sans = TTF_OpenFont( SANS_FONT_FILE, 256 );
-	SDL_Color 		color = { 0, 255, 0 };
+	SDL_Color		color = { 0, 255, 0 };
 	SDL_Window *	sdlWindow = GetSdlWindow();
 	SDL_Renderer *	sdlRenderer = GetSdlRenderer();
-	SDL_Event 		event;
+	SDL_Event		event;
 
 	SDL_GetWindowSize( sdlWindow, &windowWidth, &windowHeight );
 	SDL_StartTextInput();
@@ -254,68 +285,94 @@ int InitializeMenu( void ) {
 
 }
 
+/*
+====================
+GetWindowResolutions
+
+Returns an array of possible full-screen window resolutions after filtering the duplicates.
+====================
+*/
 static int GetWindowResolutions( int *harray , int *warray ) {
-    int counter, oldw, oldh, display_count = 0, display_index = 0, i, ch, cw;
+	// A lot of variables.
+    int				counter = 0;
+	int				oldw = 0;
+	int				oldh = 0;
+	int				display_index = 0;
+	int				display_count = SDL_GetNumDisplayModes( display_index );
+    int				i;
+	int				cw = 0;
+	int				ch = 0;
     SDL_DisplayMode mode1 = { SDL_PIXELFORMAT_UNKNOWN, 0, 0, 0, 0 };
-    display_count = SDL_GetNumDisplayModes(0);
-    ch = 0;
-    counter = 0;
-    cw = 0;
-	oldw = 0;
-	oldh = 0;
-    //printf("DisplayCounts : %d\n",display_count) ;
-    for (i = 0 ; i < display_count ; i++){
-    	if (SDL_GetDisplayMode(display_index, i, &mode1) != 0) {
-	        DebugPrintF("SDL_GetDisplayMode failed: %s", SDL_GetError());
+
+	// Make sure both arrays are actually there
+	DebugAssert( harray );
+	DebugAssert( warray );
+
+    // Goes through the list and writes everything to the arrays.
+	for( i = 0; i < display_count; i++ ) {
+		if( SDL_GetDisplayMode( display_index, i, &mode1 ) != 0 ) {
+	        DebugPrintF( "SDL_GetDisplayMode failed: %s", SDL_GetError() );
 	        return 1;
 	    }
-	    if ((oldw != mode1.w) || (oldh != mode1.h) ){
-	    	harray[ch] = mode1.h ;
-		    warray[cw] = mode1.w ;
-		    oldw = mode1.w ;
-		    oldh = mode1.h ;
-		    ch++ ;
-		    cw++ ;
-		    counter ++;
-    	}
-  }
-  return counter ;
+	    if( ( oldw != mode1.w ) || ( oldh != mode1.h ) ) {
+			harray[ch] = mode1.h;
+			warray[cw] = mode1.w;
+			oldw = mode1.w;
+			oldh = mode1.h;
+			ch++;
+			cw++;
+			counter ++;
+		}
+	}
+	return counter;
 }
 
 /*
 ====================
 ShowMenu
 
-Renders the menu on the window. This call blocks     until the user decides to leave the application (return value PS_QUIT) or start a game (return value PS_GAME).
+Renders the menu on the window. This call blocks until the user decides to leave the application (return value PS_QUIT) or start a game (return value PS_GAME).
 ====================
 */
 int ShowMenu( void ) {
-	enum ProgramState 	mode = PS_MENU;
-	int 				marked = 0;
+	enum ProgramState	mode = PS_MENU;
+	int					marked = 0;
 	enum MenuState		menuState = MS_MAIN_MENU;
-	int i ;
-	int  display_count = SDL_GetNumDisplayModes(0);
+
+	int					i;
+	int					displayCount = SDL_GetNumDisplayModes( 0 );	// The amount of display modes.
 	SDL_Window *		sdlWindow = GetSdlWindow();
 	SDL_Renderer *		renderer = GetSdlRenderer();
-    CW = malloc( sizeof(int) * display_count );
-    CH = malloc( sizeof(int) * display_count );
+	Button_t			tabOrder[4];								// The four buttons of the main menu.
+
+	// The arrays that will
+    CW = malloc( sizeof(int) * displayCount );
+    CH = malloc( sizeof(int) * displayCount );
+
+	// Prepare the menu output.
 	DebugPrintF( "Running the menu." );
-	Button_t tabOrder[4];
-	while(strlen(username)<1){
+
+	// Get the user name
+	while( strlen( username ) < 1 ) {
         TextInput( "Username: ", username );
 	}
-	if (side ==2){
-	ChooseSide() ;
+
+	// Let the user choose sides.
+	if( side == 2 ) {
+		ChooseSide();
 	}
+
+	// Load textures etc.
 	InitializeMenuElements( tabOrder, renderer, sdlWindow );
-    numWindowResolutions = GetWindowResolutions(CH,CW);
-    DebugPrintF( "Got Avaible Display Resolutions" );
 
-	for ( i = 0 ; i < numWindowResolutions; i++){
-        DebugPrintF("Width: %d //Height: %d",CW[i],CH[i]);
+	// Retrieve and print all available full-screen display resolutions.
+	numWindowResolutions = GetWindowResolutions( CH, CW );
+    DebugPrintF( "Got Avaible Display Resolutions" );
+	for ( i = 0 ; i < numWindowResolutions; i++ ) {
+        DebugPrintF( "Resolution #%d: %d x %d", i, CW[i], CH[i] );
 	}
 
-
+	// Show the menu
 	while( 1 ) {
 		mode = Menu( sdlWindow, renderer, &marked, &menuState, tabOrder );
 		if( mode != PS_MENU ) {
@@ -415,6 +472,13 @@ static int EventCheckLobby( int *marked, enum MenuState *menuState ) {
 	return PS_MENU;
 }
 
+/*
+====================
+EventCheckOptions
+
+The event loop for the options submenu. Checks key states etc.
+====================
+*/
 static int EventCheckOptions( enum MenuState *menuState ) {
 	SDL_Event event;
 	while( SDL_PollEvent( &event ) ){
@@ -544,16 +608,18 @@ Renders all the buttons
 ==========================================================
 */
 static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
-	int 		w, h, i, n, wt, ht;
+	int			w, h, i, n, wt, ht;
 	char *		playerNames[6];
-	SDL_Color 	white = {255, 255, 255};
+	SDL_Color	white = {255, 255, 255};
+	SDL_Rect	startRect;
+	SDL_Rect	frameRect;
+	SDL_Rect	backgroundRect;
+	SDL_Rect	Player_rect;
 
-	GetPlayerList( playerNames, &n );
+	// Calls the network component to go through the lobby code.
 	ProcessLobby();
 
-	SDL_Rect startRect;
-	SDL_Rect frameRect;
-	SDL_Rect backgroundRect;
+	// Get the current window size and set the rectangles for the images accordingly.
 	SDL_GetWindowSize( sdlWindow, &w, &h );
 
 	startRect.w = 0.2 *h;
@@ -571,84 +637,122 @@ static int RenderLobby( Button_t *tabOrder, int *marked, SDL_Renderer *renderer,
 	backgroundRect.x = 0;
 	backgroundRect.y = 0;
 
+	// Get the list of currently logged-in players from the network component.
+	GetPlayerList( playerNames, &n );
+
+	// Prepare rendering
 	SDL_RenderClear( renderer );
+
+	// Draw the background :)
 	SDL_RenderCopy( renderer, backgroundTexture, NULL, &backgroundRect );
+
+	// Go through the players and draw every name
 	for ( i = 0; i < n; i++ ){
+		// Render text to surface and convert surface to texture
 		SDL_Surface* surfaceMessage = TTF_RenderText_Solid( sans, playerNames[i], white );
 		SDL_Texture* Message = SDL_CreateTextureFromSurface( renderer, surfaceMessage );
+
+		// Get text size for scaling and set the player rectangle accordingly.
         TTF_SizeText( sans , playerNames[i] , &wt , &ht );
-		//printf( "%s :: %d \n", playerNames[i], n );
-		SDL_Rect Player_rect;
-		Player_rect.h = frameRect.h * 0.1125;
-		if ( (Player_rect.h * wt/ht) > ( frameRect.w / 2 ) ){
-            Player_rect.w = frameRect.w /2;
-		} else {
-		Player_rect.w = Player_rect.h * wt/ht ;
-		}
+
+		// The constant 0.1125 was found out by experimentation.
+		Player_rect.h = frameRect.h * 0.1125f;
+
+		// The width of the player name rectangle is the minimum of
+		//   a) What SDL_ttf says should be right for proper scaling
+		//   b) What fits into our background rectangle, so we make sure we don't overrun the bounds of it.
+		Player_rect.w = fminf( Player_rect.h * wt / ht, frameRect.w / 2 );
+
+		// Position the rectangle
 		Player_rect.x = ( frameRect.w / 2 ) - Player_rect.w / 2;
 		Player_rect.y = ( i * Player_rect.h * 1 )  + h*0.15 + frameRect.y;
+
+		// Draw the rectangle and clean up.
 		SDL_RenderCopy( renderer, Message, NULL, &Player_rect );
 		SDL_DestroyTexture( Message );
 		SDL_FreeSurface( surfaceMessage );
 	}
+
+	// Render the frame for the player list
 	SDL_RenderCopy( renderer, frameTexture, NULL, &frameRect );
-	if( *menuState == MS_HOST_GAME ) {
-		SDL_RenderCopy( renderer, startButton.texSelected, NULL, &startRect );
-	} else {
-		SDL_RenderCopy( renderer, startButton.texNotSelected , NULL , &startRect );
-	}
+
+	// If we're host, render the start button as selected, otherwise render it as unselected.
+	SDL_RenderCopy( renderer, *menuState == MS_HOST_GAME ? startButton.texSelected : startButton.texNotSelected, NULL, &startRect );
+
 	SDL_RenderPresent( renderer );
 	return 0;
 }
 
+/*
+====================
+RenderOptions
 
+TODO: Supposed to render the options submenu. Doesn't do much as of yet.
+====================
+*/
 static int RenderOptions( SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
-	//int 		w, h, i;
-	//SDL_Rect 	backgroundRect;
-	//SDL_Rect 	buttonRect;
-	//SDL_Rect 	titleRect;
 	return 0;
 }
 
+/*
+====================
+RenderMainMenu
+
+Renders the main menu which you see after choosing sides in the game.
+====================
+*/
 static int RenderMainMenu( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
-	int 		w, h, i;
-	SDL_Rect 	backgroundRect;
-	SDL_Rect 	buttonRect;
-	SDL_Rect 	titleRect;
+	int			w, h, i;
+	SDL_Rect	backgroundRect;
+	SDL_Rect	buttonRect;
+	SDL_Rect	titleRect;
+
+	// Get the window size and set rectangles for background and title accordingly.
 	SDL_GetWindowSize( sdlWindow, &w, &h );
+
 	backgroundRect.w = w;
 	backgroundRect.h = h;
 	backgroundRect.x = 0;
 	backgroundRect.y = 0;
+
 	titleRect.w = w * 0.7;
 	titleRect.h = h / 5;
 	titleRect.x = ( w / 2 ) - titleRect.w / 2;
 	titleRect.y = 0;
 
+	// Prepare the rendering with the background and title textures.
 	SDL_RenderClear( renderer );
-
 	SDL_RenderCopy( renderer, backgroundTexture, NULL, &backgroundRect );
 	SDL_RenderCopy( renderer, titleTexture, NULL, &titleRect );
 
+	// Go through the array and draw all four buttons (selected or unselected depending on state):
+	//	1	Host Game
+	//	2	Join Game
+	//	3	Options
+	//	4	Quit
 	for ( i = 0; i < 4; i++ ) {
 		buttonRect.x = tabOrder[i].x;
 		buttonRect.y = tabOrder[i].y;
 		buttonRect.w = tabOrder[i].width;
 		buttonRect.h = tabOrder[i].height;
-		if ( *marked == i ){
-			SDL_RenderCopy( renderer, tabOrder[i].texSelected, NULL, &buttonRect );
-		} else {
-			SDL_RenderCopy( renderer, tabOrder[i].texNotSelected, NULL, &buttonRect );
-		}
+		SDL_RenderCopy( renderer, *marked == i ? tabOrder[i].texSelected : tabOrder[i].texNotSelected, NULL, &buttonRect );
 	}
+
 	SDL_RenderPresent( renderer );
 	return 0;
 }
 
+/*
+====================
+Render
 
-static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
+You call this when you don't know what to render. Renders whatever has to be rendered.
+====================
+*/
+static int Render( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) {
 	int result = 0;
 
+	// Well, this should explain itself.
 	switch( *menuState ) {
 		case MS_MAIN_MENU:
 			result = RenderMainMenu(tabOrder,marked,renderer,sdlWindow,menuState);
@@ -671,18 +775,18 @@ static int Render ( Button_t *tabOrder, int *marked, SDL_Renderer *renderer, SDL
 Initializes the elements of the main menu.
 ==========================================================
 */
-static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow ) {
-	int w,h;
-	//side = rand() % 2;
+static void InitializeMenuElements( Button_t *tabOrder , SDL_Renderer *renderer , SDL_Window* sdlWindow ) {
+	int				w,h;
+	int				i;
+	SDL_Surface *	temp;
 
+	// Prepare rendering
 	sans = TTF_OpenFont( SANS_FONT_FILE, 500 );
 	SDL_GetWindowSize( sdlWindow, &w, &h );
 	DebugPrintF( "SDL_GetWindowSize returned %d x %d pixels.", w, h );
-	SDL_Surface *temp;
 
-
-
-
+	// Load the texutures for the start button, the text frame, title, background, and the four main menu buttons,
+	// according to the side chosen (Evil or Good).
 	if( side == 1 ) {
 		temp = IMG_Load( ASSET_FOLDER "Evil/Start.png" );
 		startButton.texSelected = SDL_CreateTextureFromSurface( renderer, temp );
@@ -710,7 +814,7 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 		tabOrder[3].texSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		temp = IMG_Load( ASSET_FOLDER "Evil/Exit(Unselected).png" );
 		tabOrder[3].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
-		DebugPrintF("Chosen Sith");
+		DebugPrintF( "Chosen Sith" );
 	} else {
 		temp = IMG_Load( ASSET_FOLDER "Good/Start.png" );
 		startButton.texSelected = SDL_CreateTextureFromSurface( renderer, temp );
@@ -740,25 +844,30 @@ static void InitializeMenuElements ( Button_t *tabOrder , SDL_Renderer *renderer
 		tabOrder[3].texNotSelected = SDL_CreateTextureFromSurface( renderer, temp );
 		DebugPrintF("Chosen Jedi");
 	}
-	DebugPrintF( "Loaded all menu images." );
-	DebugAssert( startButton.texSelected && startButton.texNotSelected && frameTexture && titleTexture && backgroundTexture );
 
-	tabOrder[0].height = 0.17f * h;
-	tabOrder[1].height = 0.17f * h;
-	tabOrder[2].height = 0.17f * h;
-	tabOrder[3].height = 0.17f * h;
-	tabOrder[0].width = 0.5f * w;
-	tabOrder[1].width = 0.5f * w;
-	tabOrder[2].width = 0.5f * w;
-	tabOrder[3].width = 0.5f * w;
-	tabOrder[0].x = (w / 2) - (tabOrder[0].width / 2);
-	tabOrder[1].x = (w / 2) - (tabOrder[1].width / 2);
-	tabOrder[2].x = (w / 2) - (tabOrder[2].width / 2);
-	tabOrder[3].x = (w / 2) - (tabOrder[3].width / 2);
-	tabOrder[0].y = h / 5;
-	tabOrder[1].y = ( 2 * h ) / 5;
-	tabOrder[2].y = ( 3 * h ) / 5;
-	tabOrder[3].y = ( 4 * h ) / 5;
+	// Check whether everything has been loaded nicely or if there were any errors, then print debug statements.
+	DebugPrintF( "Done loading menu images." );
+	DebugAssert( startButton.texSelected );
+	DebugAssert( startButton.texNotSelected );
+	DebugAssert( frameTexture );
+	DebugAssert( titleTexture );
+	DebugAssert( backgroundTexture );
+	DebugAssert( tabOrder[0].texSelected );
+	DebugAssert( tabOrder[0].texNotSelected );
+	DebugAssert( tabOrder[1].texSelected );
+	DebugAssert( tabOrder[1].texNotSelected );
+	DebugAssert( tabOrder[2].texSelected );
+	DebugAssert( tabOrder[2].texNotSelected );
+	DebugAssert( tabOrder[3].texSelected );
+	DebugAssert( tabOrder[3].texNotSelected );
+
+	// Set the button rectangles..
+	for( i = 0; i < 4; i++ ) {
+		tabOrder[i].height = 0.17f * h;
+		tabOrder[i].width = 0.5f * w;
+		tabOrder[i].x = ( w / 2 ) - ( tabOrder[i].width / 2 );
+		tabOrder[i].y = ( ( i + 1 ) * h ) / 5;
+	}
 	DebugPrintF( "Assigned all button positions." );
 }
 
