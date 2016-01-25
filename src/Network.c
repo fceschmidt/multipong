@@ -672,7 +672,6 @@ Handles when the server starts the game.
 ====================
 */
 static void ClientHandleServerStartGame() {
-	// TODO: Implement this functionality.
 	IPaddress *address = SDLNet_TCP_GetPeerAddress( activeSocket );
 	DebugAssert( address );
 	

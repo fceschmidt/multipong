@@ -20,14 +20,14 @@ int main( int argc, char *argv[] ) {
 		return result;
 	}
 
-	// TODO: Implement the rest.
+	// Control loop
 	while( mode != PS_QUIT ) {
 		switch( mode ) {
 			case PS_MENU:
 				mode = ShowMenu();
 				break;
 			case PS_GAME:
-				// TODO: Go to game loop...
+				// Go to game loop...
 				mode = RunGame();
 				break;
 			default:

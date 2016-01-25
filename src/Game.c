@@ -38,7 +38,7 @@ static int InitializeGame( void ) {
 ====================
 RunGame
 
-Currently, displays the GameState for 10 seconds. TODO: Change in the future so that network gets called too!
+Currently, displays the GameState for 10 seconds.
 ====================
 */
 int RunGame( void ) {
@@ -54,7 +54,7 @@ int RunGame( void ) {
 		lastFrame = SDL_GetTicks();
 		ProcessInGame( &currentState );
 		DisplayGameState( &currentState );
-		// TODO: Remove this once the state is actually displayed..
+		// Ensures acceptable time measurements (We don't want ~positive infinity FPS, that would break physics)
 		SDL_Delay( 10 );
 	}
 	return PS_MENU;

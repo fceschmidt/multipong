@@ -31,11 +31,11 @@ static SDL_Surface*     temp;
 static TTF_Font *		sans;
 
 static void				CalculatePaddleCoordinates(  struct GameState *state, int playerId, struct Point2D *start, struct Point2D *end );
-static void 			CalculateBallCoordinates( struct Ball ball, struct Point2D *point, int *radius );
-static void 			GetScreenSquare( struct Line2D *rectangle );
-static struct Point2D 	GameToScreenCoordinates( struct Point2D point );
-static void 			GenerateStringTexture( const char *string, SDL_Texture **texture );
-static void 			DrawScores( struct GameState *state );
+static void				CalculateBallCoordinates( struct Ball ball, struct Point2D *point, int *radius );
+static void				GetScreenSquare( struct Line2D *rectangle );
+static struct Point2D	GameToScreenCoordinates( struct Point2D point );
+static void				GenerateStringTexture( const char *string, SDL_Texture **texture );
+static void				DrawScores( struct GameState *state );
 
 // Functions
 SDL_Window *GetSdlWindow( void );
@@ -49,25 +49,31 @@ Creates the window and renderer.
 ====================
 */
 int InitializeGraphics( void ) {
+	// Initialize SDL and create the window and renderer.
 	DebugAssert( !SDL_Init( SDL_INIT_VIDEO ) );
-	//outputFullscreen = 1 ;
 	sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, outputFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
 	DebugAssert( sdlWindow );
 	SDL_ShowCursor( SDL_DISABLE );
 	sdlRenderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
 	DebugAssert( sdlRenderer );
+
+	// Load the necessary assets for the game.
 	temp = IMG_Load("Assets/Ball.png" );
     ballTexture = SDL_CreateTextureFromSurface( sdlRenderer, temp );
     temp = IMG_Load("Assets/backgroundGame.png" );
     backgroundTexture = SDL_CreateTextureFromSurface( sdlRenderer, temp );
+
+	// Initialize SDL_ttf and open the standard font
 	DebugAssert( !TTF_Init() );
 	sans = TTF_OpenFont( SANS_FONT_FILE, 256 );
+
+	// Initialize the linked list for score textures
 	scoreTexStart = malloc( sizeof( struct ScoreTexture ) );
 	GenerateStringTexture( "0", &scoreTexStart->texture );
 	scoreTexStart->next = NULL;
 	DebugAssert( scoreTexStart->texture );
 
-	//DebugAssert( SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) );
+	// Register the SDL_quit function for execution on exit.
 	atexit( SDL_Quit );
 	return !( sdlWindow && sdlRenderer );
 }
@@ -79,10 +85,10 @@ SetWindowResolution
 Sets the windows resolution. You have to call GetRenderer and GetWindow afterwards.
 ====================
 */
-void SetWindowResolution (int  Width , int Height , int Fullscreen) {
-    SDL_DestroyWindow(sdlWindow);
-    SDL_DestroyRenderer(sdlRenderer);
-    sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, Width, Height, Fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
+void SetWindowResolution( int width, int height, int fullscreen ) {
+    SDL_DestroyWindow( sdlWindow );
+    SDL_DestroyRenderer( sdlRenderer );
+    sdlWindow = SDL_CreateWindow( "multipong", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_SHOWN );
     sdlRenderer = SDL_CreateRenderer( sdlWindow, -1, SDL_RENDERER_ACCELERATED );
 }
 
@@ -116,25 +122,23 @@ Renders the game state using information from the state variable.
 ====================
 */
 int DisplayGameState( struct GameState *state ) {
-	// TODO: Code for rendering!
 	/* This needs to do the following:
 	 * Use the predefined sdlWindow and sdlRenderer!
 	 * The GameState should not be changed, therefore it is .
 	 * For rendering, have a look at the functions in Menu.c!
-	 * 		I know you dislike them for the style, but they will be
+	 *		I know you dislike them for the style, but they will be
 	 *		refactored later and already work.
-	 * 1. You need to get the window resolution
-	 * 2. Take the minimum of window height and window width
-	 * 		and find the largest square that fits centered onto the screen.
+	 *
+	 * 1. Take the minimum of window height and window width
+	 *		and find the largest square that fits centered onto the screen.
 	 *		This is an internal definition, SDL does not do this for you.
-	 * 		The coordinates on this square go from (-1,1) in the top left corner
+	 *		The coordinates on this square go from (-1,1) in the top left corner
 	 *		to (1,-1) in the bottom right corner. You need these because in the
 	 *		GameState, everything is saved on a coordinate system from -1 to 1 on
 	 *		the x and y axes.
-	 * 3. Clear the renderer.
-	 * 4. (Optional) Draw the background.
-	 * 5. For each player, the paddle should be drawn like this:
-	 * 		a) Get the player line using the GetPlayerLine function from Physics.
+	 * 2. (Optional) Draw the background.
+	 * 3. For each player, the paddle should be drawn like this:
+	 *		a) Get the player line using the GetPlayerLine function from Physics.
 	 *			This line contains one point on the coordinate system and a vector
 	 *			to the end of the line.
 	 *		b) The inner edge of the paddle should be exactly on this line, and the
@@ -147,25 +151,25 @@ int DisplayGameState( struct GameState *state ) {
 	 *		c) Now draw a colored line from the first point to the second point.
 	 *			Remember that you should translate the points to screen coordinates
 	 *			using the definition in step 2 before you draw.
-	 * 6. Draw a circle to represent the ball. Also translate the state->ball.position
+	 * 4. Draw a circle to represent the ball. Also translate the state->ball.position
 	 *		before you actually draw this.
-	 * 7. Present and be done!
-	 * P.S.: You can test this function for ten seconds by running the program, going into Host game mode and pressing enter in the lobby!
 	*/
 
-    int            	windowWidth, windowHeight, i;
-    SDL_Rect       	ball_rect;
+    int				windowWidth, windowHeight, i;
+    SDL_Rect		ball_rect;
     SDL_Rect        background_rect;
     struct Point2D  paddleStart;
     struct Point2D  paddleEnd;
     struct Point2D  pointBall;
     int				radius;
 
+	// Get the window resolution
     SDL_GetWindowSize( sdlWindow, &windowWidth, &windowHeight );
     background_rect.x = 0 ;
     background_rect.y = 0 ;
     background_rect.h = windowHeight;
     background_rect.w = windowWidth;
+
 	//Set all corresponding Rect Values
     CalculateBallCoordinates( state->ball, &pointBall, &radius );
     ball_rect.w = radius*2 ;
@@ -173,7 +177,7 @@ int DisplayGameState( struct GameState *state ) {
     ball_rect.x = (pointBall.x - radius) ;
     ball_rect.y = (pointBall.y - radius) ;
 
-    //copy everything in the renderer
+    // Clear the renderer
 	SDL_RenderClear( sdlRenderer );
     SDL_RenderCopy( sdlRenderer, backgroundTexture, NULL, &background_rect );
 	for (i = 0 ; i < state->numPlayers ; i++){
@@ -182,8 +186,10 @@ int DisplayGameState( struct GameState *state ) {
         SDL_RenderDrawLine( sdlRenderer, paddleStart.x, paddleStart.y, paddleEnd.x, paddleEnd.y );
 	}
 
+	// Draw the scores on the screen
 	DrawScores( state );
 
+	// Draw the ball and present
 	SDL_RenderCopy( sdlRenderer, ballTexture, NULL, &ball_rect );
 	SDL_RenderPresent( sdlRenderer );
 
@@ -309,7 +315,7 @@ To be called in between RenderClear and RenderPresent! :)
 ====================
 */
 static void DrawScores( struct GameState *state ) {
-	int 					n;
+	int						n;
 	struct Point2D			rectCenter;
 	struct Line2D			playerLine;
 	struct Vector2D			orthoLeftVector;

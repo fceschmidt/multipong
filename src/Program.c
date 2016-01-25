@@ -16,9 +16,6 @@ static int ReadArguments( int argc, char *argv[] );
 static int ArgumentHelp( void );
 static int ArgumentFullscreen( void );
 static int ArgumentWindowed( void );
-// TODO: REMOVE!
-static int ArgumentServer( void );
-static int ArgumentClient( void );
 
 /*
 ==========================================================
@@ -45,8 +42,6 @@ struct ArgumentNameFunctionCouple {
 // TODO: Add complete list of options HERE.
 static struct ArgumentNameFunctionCouple argumentNameFunctionMap[] = {
 	{ .name = "--help", .function = &ArgumentHelp },
-	{ .name = "--server", .function = &ArgumentServer },
-	{ .name = "--client", .function = &ArgumentClient },
 	{ .name = "--fullscreen", .function = &ArgumentFullscreen },
 	{ .name = "--windowed", .function = &ArgumentWindowed }
 };
@@ -71,7 +66,7 @@ int InitializeProgram( int argc, char *argv[] ) {
 	// Seed the randomizer.
 	srand( time ( NULL ) );
 
-	// TODO: Read command line arguments.
+	// Read command line arguments.
 	ReadArguments( argc, argv );
 
 	InitializeNetwork();
@@ -79,8 +74,8 @@ int InitializeProgram( int argc, char *argv[] ) {
 	InitializePhysics();
 	InitializeMenu();
 	InitializeAudio();
-	
-	// TODO: Remove this hello message and print it in debug.
+
+	// Print hello message in debug.
 	DebugPrintF( "Successfully started multipong." );
 	return 0;
 }
@@ -116,7 +111,8 @@ ReadArguments
 
 Reads the arguments from the command line.
 	--help		prints a help message
-	--windowed	TODO executes in windowed mode
+	--windowed	executes in windowed mode
+For full list of options, see function pointer list above.
 ====================
 */
 static int ReadArguments( int argc, char *argv[] ) {
@@ -153,7 +149,10 @@ Prints a help message.
 ====================
 */
 static int ArgumentHelp( void ) {
-	printf( "Welcome to multipong. There is no help available at the moment, sorry!\n" );
+	printf( "Welcome to multipong. Your options:\n"
+			"  --help         Prints this message\n"
+			"  --fullscreeen  Executes in full-screen mode\n"
+			"  --windowed     Executes in windowed mode\n" );
 	return 0;
 }
 
@@ -181,28 +180,3 @@ static int ArgumentWindowed( void ) {
 	return 0;
 }
 
-int ArgumentClient( void ) {
-	InitializeNetwork();
-	Connect( 0, "127.0.0.1", NETWORK_STANDARD_SERVER_PORT );
-	while( ProcessLobby() == 0 );
-	while( 1 ) {
-		ProcessInGame( NULL );
-	}
-	return 0;
-}
-
-int ArgumentServer( void ) {
-	InitializeNetwork();
-	Connect( 1, NULL, NETWORK_STANDARD_SERVER_PORT );
-	//time_t start = time( NULL );
-	//time_t end = start + 10;
-	while( /*time( NULL ) < end*/ 1 ) {
-		ProcessLobby();
-	}
-	DebugPrintF( "Start" );
-	NetworkStartGame( NETWORK_STANDARD_DATA_PORT );
-	while( 1 ) {
-		ProcessInGame( NULL );
-	}
-	return 0;
-}

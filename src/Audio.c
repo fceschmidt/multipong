@@ -52,7 +52,7 @@ Closes SDL_mixer
 */
 void CloseAudio() {
 	Mix_Quit();
-} //TODO: Implement into Program
+}
 
 /*
 ====================
@@ -67,7 +67,7 @@ void PlaySoundHit( int player ) {
 	Mix_PlayChannel( -1, ping, 0 );
 //	Mix_FreeChunk( ping );
 //	ping = NULL;
-} //TODO: Implement into Physics probably?
+}
 
 /*
 ====================
@@ -82,4 +82,4 @@ void PlaySoundPoint( const struct GameState *state, int player ) {
 	Mix_PlayChannel( -1, success, 0 );
 //	Mix_FreeChunk( success );
 //	success = NULL;
-} //TODO: Implement into Physics probably?
+}

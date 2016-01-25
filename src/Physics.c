@@ -412,7 +412,6 @@ static struct Vector2D RotateVector2D( struct Vector2D vector, float angle ) {
 GetReflectionVector
 
 Gets a reflection vector for the object which bounces off the wall.
-TODO: Make it a bit more random.
 ====================
 */
 static struct Vector2D GetReflectionVector( struct Vector2D wall, struct Vector2D objectMovement, int random ) {
@@ -496,7 +495,8 @@ static void BallLogic( struct GameState *state, float deltaSeconds ) {
 
 	// Check collision with the player paddle.
 	currentPosition = &state->players[segment].position;
-	// TODO: Do some calculations for intermediate states of the ball rather than this.
+	// This works. I considered doing some calculations for intermediate states of the ball rather than this,
+	// but it seems like that is unnecessary.
 	LineCircleCollision2D( ballCircle, GetPlayerLine( segment, state->numPlayers ), &isRight, &projection );
 	if( isRight ) {
 		// Normal displacement.
