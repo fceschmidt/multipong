@@ -17,7 +17,7 @@
 ==========================================================
 
 A struct which saves information about a player in the network context.
-The socket is NULL for every player unless isServer is true. 
+The socket is NULL for every player unless isServer is true.
 
 ==========================================================
 */
@@ -25,8 +25,8 @@ struct NetworkClientInfo {
 	char *				alias;
 	TCPsocket			socket;
 	SDLNet_SocketSet	socketSet;
-	TCPsocket 			dataSocket;
-	SDLNet_SocketSet 	dataSocketSet;
+	TCPsocket			dataSocket;
+	SDLNet_SocketSet	dataSocketSet;
 };
 
 /*
@@ -69,15 +69,15 @@ union IntFloat {
 
 // VARIABLES
 
-static int 						isServer = 0;			// A boolean value which is 1 if this component is a server and 0 if it is a client.
-static int 						isConnected = 0;		// A boolean value which indicates whether the component is currently connected.
-static int 						isInitialized = 0;		// A boolean value indicating initialization state.
+static int						isServer = 0;			// A boolean value which is 1 if this component is a server and 0 if it is a client.
+static int						isConnected = 0;		// A boolean value which indicates whether the component is currently connected.
+static int						isInitialized = 0;		// A boolean value indicating initialization state.
 int								clientGameStarted = 0;	// Is 1 only if the network component is in client mode and the server has started the game
 
-static TCPsocket 				activeSocket = NULL;	// The current socket for state & meta information
+static TCPsocket				activeSocket = NULL;	// The current socket for state & meta information
 static SDLNet_SocketSet			activeSocketSet = NULL;	// The associated socket set for asio
-static TCPsocket 				dataSocket = NULL;		// The current socket for exchange of in-game information
-static SDLNet_SocketSet 		dataSocketSet = NULL;	// The associated socket set for asio
+static TCPsocket				dataSocket = NULL;		// The current socket for exchange of in-game information
+static SDLNet_SocketSet			dataSocketSet = NULL;	// The associated socket set for asio
 
 static struct NetworkClientInfo clients[6];				// 6 players maximum, eh?!
 static int						numClients = 0;			// The amount of filled in elements of the clients array
@@ -139,7 +139,7 @@ Sets up the network component.
 ====================
 */
 int InitializeNetwork( void ) {
-	DebugPrintF( "InitializeNetwork called." );	
+	DebugPrintF( "InitializeNetwork called." );
 	int result;
 
 	// Initialize SDL_net and return on error.
@@ -189,7 +189,7 @@ Connects the network component.
 ====================
 */
 int Connect( int server, const char *remoteAddress, uint16_t port ) {
-	DebugPrintF( "Connect( %d, %s, %d ) called.", server, remoteAddress ? remoteAddress : "", port );	
+	DebugPrintF( "Connect( %d, %s, %d ) called.", server, remoteAddress ? remoteAddress : "", port );
 	// If the network component is not initialized, return error.
 	if( !isInitialized ) {
 		return -1;
@@ -225,8 +225,8 @@ Creates a server to listen for incoming connections.
 */
 static int ConnectLocalServer( TCPsocket *socket, uint16_t localPort ) {
 	// Create a listening TCP socket on localPort
-	IPaddress 	ip;
-	TCPsocket 	listener;
+	IPaddress	ip;
+	TCPsocket	listener;
 	int			result;
 
 	result = SDLNet_ResolveHost( &ip, NULL, localPort );
@@ -274,7 +274,7 @@ Connects to a remote server using an IPaddress pointer.
 */
 static int ConnectRemoteServerIp( TCPsocket *socket, SDLNet_SocketSet *socketSet, IPaddress *remoteAddress ) {
 	TCPsocket	client;
-	
+
 	client = SDLNet_TCP_Open( remoteAddress );
 	if( !client ) {
 		return ERROR_TCP_SOCKET_CREATION_FAILED;
@@ -394,7 +394,7 @@ static int ServerAcceptClients( void ) {
 		int newId = AddPlayer( clientInfo );
 		int packet[3];
 		SDLNet_Write32( ( int )PID_YOUR_ID,	&packet[0] );
-		SDLNet_Write32( 12, 				&packet[1] );
+		SDLNet_Write32( 12,					&packet[1] );
 		SDLNet_Write32( newId,				&packet[2] );
 		SDLNet_TCP_Send( clients[newId].socket, packet, sizeof( packet ) );
 	}
@@ -487,8 +487,8 @@ static void ServerHandleClientQuit( int playerId ) {
 	// Remove the player from the list and ask all other clients to do the same.
 	RemovePlayer( playerId );
 	int packet[3];
-	SDLNet_Write32( ( int )PID_QUIT, 	&packet[0] );
-	SDLNet_Write32( 12, 				&packet[1] );
+	SDLNet_Write32( ( int )PID_QUIT,	&packet[0] );
+	SDLNet_Write32( 12,					&packet[1] );
 	SDLNet_Write32( playerId,			&packet[2] );
 	BroadcastPacketToClients( packet, sizeof( packet ) );
 }
@@ -534,7 +534,7 @@ void IssueAllJoins( TCPsocket socket ) {
 		SDLNet_Write32( ( int )PID_JOIN,	&packet[0] );
 		SDLNet_Write32( packetSize,			&packet[4] );
 		SDLNet_Write32( client,				&packet[8] );
-		
+
 		SDLNet_TCP_Send( socket, packet, packetSize );
 
 		free( packet );
@@ -567,15 +567,14 @@ Given a packet buffer, reads all packets and takes action according to their con
 ====================
 */
 static int ClientProcessLobbyIncomingPackets( char *bytes, int numBytes ) {
-	int 	playerId;
+	int		playerId;
 	int		stringLength;
 	char *	alias;
 	int		newId;
-	int		port;
 
 	int		bReadPosition = 0;
 	int		endOfStream = 0;
-	
+
 	while( !endOfStream ) {
 		switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
 			case PID_JOIN:
@@ -616,9 +615,9 @@ PID_JOIN, PID_YOUR_ID and PID_START_GAME
 ====================
 */
 static int ClientProcessLobby( void ) {
-	char 	bytes[1024];
+	char	bytes[1024];
 	int		numBytes;
-	
+
 	while( 1 ) {
 		numBytes = NonBlockingRecv( activeSocket, activeSocketSet, bytes, sizeof( bytes ) );
 		if( numBytes <= 0 ) {
@@ -657,8 +656,8 @@ static void ClientHandleServerYourId( int newId ) {
 	char *alias = malloc( MAX_PLAYER_NAME_LENGTH );
 	GetUserName( alias );
 	packet = malloc( 8 + strlen( alias ) );
-	SDLNet_Write32( ( int )PID_MY_NAME, 	&packet[0] );
-	SDLNet_Write32( 8 + strlen( alias ), 	&packet[4] );
+	SDLNet_Write32( ( int )PID_MY_NAME,		&packet[0] );
+	SDLNet_Write32( 8 + strlen( alias ),	&packet[4] );
 	strncpy( packet + 8, alias, strlen( alias ) );
 	SDLNet_TCP_Send( activeSocket, packet, 8 + strlen( alias ) );
 	DebugPrintF( "I gave the server my name." );
@@ -674,7 +673,7 @@ Handles when the server starts the game.
 static void ClientHandleServerStartGame() {
 	IPaddress *address = SDLNet_TCP_GetPeerAddress( activeSocket );
 	DebugAssert( address );
-	
+
 	SDLNet_Write16( NETWORK_STANDARD_DATA_PORT, &address->port );
 	ConnectRemoteServerIp( &dataSocket, &dataSocketSet, address );
 
@@ -750,9 +749,7 @@ Accepts all clients for the data port now. Waits until we have all clients.
 ====================
 */
 static int AcceptAllDataClients( void ) {
-	int 		dataClients = 1;
-	IPaddress *	info;
-	IPaddress *	newInfo;
+	int			dataClients = 1;
 	char		nBuffer[4];
 	int			clientNumber;
 
@@ -788,7 +785,7 @@ int NetworkStartGame( uint16_t udpPort ) {
 	}
 	// Prepare data socket
 	ConnectLocalServer( &dataSocket, NETWORK_STANDARD_DATA_PORT );
-	
+
 	// Broadcast connection info
 	char packet[12];
 	SDLNet_Write32( ( int )PID_START_GAME,	&packet[0] );
@@ -872,7 +869,7 @@ static void SerializeGameStateGeometry( const struct GameState *state, char **bu
 	SDLNet_Write32( modifier->i,	&( *buffer )[0] );
 	modifier = ( union IntFloat * )&state->ball.position.y;
 	SDLNet_Write32( modifier->i,	&( *buffer )[4] );
-	
+
 	// Write the ball direction.
 	modifier = ( union IntFloat * )&state->ball.direction.dx;
 	SDLNet_Write32( modifier->i,	&( *buffer )[8] );
@@ -912,7 +909,7 @@ static void ServerUpdateClientGeometry( struct GameState *state ) {
 		if( numBytes <= 0 ) {
 			continue;
 		}
-		
+
 		// Read information
 		readPosition = numBytes - 4;
 		modifier = ( union IntFloat * )&state->players[player].position;
@@ -949,7 +946,7 @@ Gets called whenever the ball hits a paddle. Broadcasts a packet for that event.
 */
 static void ServerInGameSendHit( int player ) {
 	char	bytes[12];
-	
+
 	SDLNet_Write32( ( int )PID_BALL_HIT,	&bytes[0] );
 	SDLNet_Write32( sizeof( bytes ),		&bytes[4] );
 	SDLNet_Write32( player,					&bytes[8] );
@@ -966,7 +963,7 @@ Gets called whenever the ball misses a paddle. Broadcasts a packet for that even
 */
 static void ServerInGameSendScore( const struct GameState *state, int player ) {
 	char *	bytes;
-	int 	numBytes;
+	int		numBytes;
 	int		client;
 
 	numBytes = 8 + 4 * state->numPlayers;
@@ -1073,7 +1070,7 @@ static void	ClientProcessInGameIncomingPackets( struct GameState *state, char *b
 
 	int		bReadPosition = 0;
 	int		endOfStream = 0;
-	
+
 	while( !endOfStream ) {
 		switch( SDLNet_Read32( &bytes[bReadPosition] ) ) {
 			case PID_BALL_HIT:
@@ -1103,9 +1100,9 @@ Receives information about the game state (score lists and hits) on the active s
 */
 static void ClientUpdateStateInformation( struct GameState *state ) {
 	// Try to receive and return in case there isn't any new information.
-	char 	bytes[1024];
+	char	bytes[1024];
 	int		numBytes;
-	
+
 	while( 1 ) {
 		numBytes = NonBlockingRecv( activeSocket, activeSocketSet, bytes, sizeof( bytes ) );
 		if( numBytes <= 0 ) {
@@ -1133,10 +1130,10 @@ static int ClientProcessInGame( struct GameState *state ) {
 
 	// Receive ball position/direction and other paddle's positions
 	ClientUpdateStateGeometry( state );
-	
+
 	// Receive ball hits and score lists from the server
 	ClientUpdateStateInformation( state );
-	
+
 	return 0;
 }
 

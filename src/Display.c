@@ -24,7 +24,6 @@ struct ScoreTexture {
 static SDL_Window *		sdlWindow = NULL;
 static SDL_Renderer *	sdlRenderer = NULL;
 int						outputFullscreen = 0;
-static SDL_Texture*     paddleTexture ;
 static SDL_Texture*     ballTexture ;
 static SDL_Texture*     backgroundTexture;
 static SDL_Surface*     temp;
