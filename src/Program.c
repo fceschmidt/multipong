@@ -105,6 +105,7 @@ Destroys all resources used by the program.
 */
 static void DestroyResources( void ) {
 	// TODO: Call all destructors.
+	Disconnect();
 	CloseDisplay();
 	CloseAudio();
 	CloseDebug();
