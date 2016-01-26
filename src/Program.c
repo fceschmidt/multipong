@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <signal.h>
 
 static void DestroyResources( void );
 static int ReadArguments( int argc, char *argv[] );
@@ -59,6 +60,10 @@ Sets the execution settings for the program according to the command line argume
 int InitializeProgram( int argc, char *argv[] ) {
 	// Register DestroyResources with atexit.
 	atexit( DestroyResources );
+
+	// Handle SIGPIPE (broken pipe) by closing the program.
+	// When a client leaves, the server used to crash because of this signal. We have to handle it.
+	signal( SIGPIPE, CloseProgram );
 
 	// Initialize debug component.
 	InitializeDebug();
