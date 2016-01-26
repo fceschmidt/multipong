@@ -302,6 +302,9 @@ void Disconnect( void ) {
 	if( activeSocket ) {
 		SDLNet_TCP_Close( activeSocket );
 	}
+	if( isServer ) {
+		ServerInGameSendQuit();
+	}
 	isConnected = 0;
 	memset( clients, 0, sizeof( struct NetworkClientInfo ) * 6 );
 	numClients = 0;
