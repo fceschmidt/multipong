@@ -2,6 +2,7 @@
 #include "Menu.h"
 #include "Main.h"
 #include "Game.h"
+#include "Debug/Debug.h"
 
 /*
 ====================
