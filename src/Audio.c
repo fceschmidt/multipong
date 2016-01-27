@@ -5,6 +5,7 @@
 #include "Audio.h"
 #include "Physics.h"
 #include "Debug/Debug.h"
+#include "Menu.h"
 
 #define PATH "Assets/Audio/"
 
@@ -24,23 +25,40 @@ void InitializeAudio() {
 		DebugPrintF( "SDL_mixer could not initialize! SDL_mixer Error: %s", Mix_GetError() );	
 	}
 	
+	AtRegisterHit( PlaySoundHit );
+	AtRegisterPoint( PlaySoundPoint );
+}
+
+/*
+====================
+PlayMusic
+
+Plays the music file based on GetSide from the menu component.
+====================
+*/
+void PlayMusic( void ) {
 	Mix_Music *theme = NULL;
-	theme = Mix_LoadMUS( PATH "MainTheme.ogg" );
-	
-	if( !theme ) {
-		DebugPrintF( "Mix_LoadMUS( \"Musik\" ): %s", Mix_GetError() );
-		theme = Mix_LoadMUS( PATH "MainTheme.wav" );
-		if( !theme ) {
-			DebugPrintF( "Mix_LoadMUS( \"Musik\" ): %s", Mix_GetError() );
-		}
+	char *Filename = malloc( strlen( PATH ) + 30 );
+	strcpy( Filename, PATH );
+	switch( GetSide() ) {
+		case SI_GOOD:
+			strcat( Filename, "Vodka.ogg" );
+			break;
+		case SI_EVIL:
+			strcat( Filename, "Freedom.ogg" );
+			break;
+		default:
+			DebugPrintF( "What went wrong here?" );
+			return;
 	}
+
+	theme = Mix_LoadMUS( Filename );
+
+	DebugAssert( theme );
 
 	if( Mix_PlayMusic( theme, -1 ) < 0 ) {
 		DebugPrintF( "Mix_PlayMusic: %s", Mix_GetError() );
 	}
-	
-	AtRegisterHit( PlaySoundHit );
-	AtRegisterPoint( PlaySoundPoint );
 }
 
 /*

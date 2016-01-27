@@ -9,6 +9,8 @@
 #include "Network.h"
 #include "Main.h"
 #include "Debug/Debug.h"
+#include "Audio.h"
+#include "Menu.h"
 
 /*
 ==========================================================
@@ -43,19 +45,6 @@ enum MenuState {
 	MS_OPTIONS
 };
 
-/*
-==========================================================
-
-An enumeration for the two sides that can be taken in the game.
-
-==========================================================
-*/
-enum Side {
-	SI_GOOD = 0,
-	SI_EVIL = 1,
-	SI_UNDECIDED
-};
-
 static SDL_Texture *backgroundTexture;
 static SDL_Texture *titleTexture;
 static SDL_Texture *frameTexture;
@@ -85,9 +74,7 @@ static int			EventCheckOptions( enum MenuState *menuState );
 static int			RenderOptions( SDL_Renderer *renderer, SDL_Window *sdlWindow, enum MenuState *menuState ) ;
 static void			HostGame( void );
 static void			JoinGame( void );
-static void			Options( void );
 static void			ChooseSide( void );
-static enum Side	GetSide( void );
 static void			GoOptions( void );
 
 extern SDL_Window *			GetSdlWindow( void );
@@ -104,7 +91,7 @@ void GetUserName( char* Name );
 ====================
 GoOptions
 
-TODO: Explain
+Simple tab order for the options submenu
 ====================
 */
 static void GoOptions ( void ) {
@@ -119,7 +106,7 @@ static void GoOptions ( void ) {
 ====================
 GetSide
 
-Returns the side that was chosen. SI_EVIL = Sith SI_GOOD = Jedi
+Returns the side value
 ====================
 */
 enum Side GetSide( void ) {
@@ -174,6 +161,7 @@ static void ChooseSide ( void ){
                     case SDLK_RETURN:
                         side = choice;
                         printf( "Chose Side : %d\n", ( int )side );
+						PlayMusic();
                         done = 1;
                         break;
                 }
@@ -552,18 +540,6 @@ static int EventCheck( int *marked, enum MenuState *menuState ) {
 			break;
 	}
 	return PS_MENU;
-}
-
-
-/*
-====================
-Options
-
-Shows the option submenu.
-====================
-*/
-static void Options( void ) {
-	// TODO: Implement
 }
 
 /*
