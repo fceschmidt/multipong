@@ -13,8 +13,9 @@ SDL2		https://www.libsdl.org/
 SDL_ttf		https://www.libsdl.org/projects/SDL_ttf/
 SDL_net		https://www.libsdl.org/projects/SDL_net/
 SDL_image	https://www.libsdl.org/projects/SDL_image/
+SDL_mixer	https://www.libsdl.org/projects/SDL_mixer/
 
-The three latter libraries can be installed by downloading the .tar.gz from the website, unpacking it and then executing:
+The four latter libraries can be installed by downloading the .tar.gz from the website, unpacking it and then executing:
 
 $ ./configure
 $ make
@@ -26,6 +27,7 @@ If you're building this project for the first time, make sure the directories ..
 
 $ mkdir ../build
 $ mkdir ../build/release
+$ mkdir ../build/release/Debug
 $ mkdir ../build/debug
 
 C ============ REGULAR BUILDS
