@@ -42,10 +42,10 @@ void PlayMusic( void ) {
 	strcpy( Filename, PATH );
 	switch( GetSide() ) {
 		case SI_GOOD:
-			strcat( Filename, "Vodka.ogg" );
+			strcat( Filename, "Freedom.ogg" );
 			break;
 		case SI_EVIL:
-			strcat( Filename, "Freedom.ogg" );
+			strcat( Filename, "Vodka.ogg" );
 			break;
 		default:
 			DebugPrintF( "What went wrong here?" );
