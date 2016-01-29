@@ -13,8 +13,9 @@ SDL2		https://www.libsdl.org/
 SDL_ttf		https://www.libsdl.org/projects/SDL_ttf/
 SDL_net		https://www.libsdl.org/projects/SDL_net/
 SDL_image	https://www.libsdl.org/projects/SDL_image/
+SDL_mixer	with ogg support :)
 
-The three latter libraries can be installed by downloading the .tar.gz from the website, unpacking it and then executing:
+The four latter libraries can be installed by downloading the .tar.gz from the website, unpacking it and then executing:
 
 $ ./configure
 $ make
@@ -22,11 +23,9 @@ $ sudo make install
 
 B ============ BUILDING FOR THE FIRST TIME
 
-If you're building this project for the first time, make sure the directories ../build, ../build/release and ../build/debug exist by going into this directory in the terminal and executing this first:
+If you're building this project for the first time, make sure the directories ../build, ../build/release etc. exist by going into this directory in the terminal and executing this first:
 
-$ mkdir ../build
-$ mkdir ../build/release
-$ mkdir ../build/debug
+$ make prepare
 
 C ============ REGULAR BUILDS
 

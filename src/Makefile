@@ -11,6 +11,14 @@ DEBUGTARGET = ../build/debug/multipong
 RELEASEOBJECTS = $(patsubst %.c, ../build/release/%.o, $(shell find . -name "*.c"))
 DEBUGOBJECTS = $(patsubst %.c, ../build/debug/%.o, $(shell find . -name "*.c"))
 
+.PHONY: prepare
+prepare:
+	mkdir ../build
+	mkdir ../build/debug
+	mkdir ../build/debug/Debug
+	mkdir ../build/release
+	mkdir ../build/release/Debug
+
 .PHONY: debug
 debug: $(DEBUGTARGET)
 
