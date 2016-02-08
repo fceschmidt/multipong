@@ -13,7 +13,7 @@ SDL2		https://www.libsdl.org/
 SDL_ttf		https://www.libsdl.org/projects/SDL_ttf/
 SDL_net		https://www.libsdl.org/projects/SDL_net/
 SDL_image	https://www.libsdl.org/projects/SDL_image/
-SDL_mixer	with ogg support :)
+SDL_mixer	https://www.libsdl.org/projects/SDL_mixer/
 
 The four latter libraries can be installed by downloading the .tar.gz from the website, unpacking it and then executing:
 
